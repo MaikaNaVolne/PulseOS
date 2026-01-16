@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Для русской локали
 import 'package:pulseos/core/utils/app_routes.dart';
+import 'package:pulseos/features/wallet/wallet_page.dart';
 import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
@@ -29,6 +30,7 @@ class PulseApp extends StatelessWidget {
       routes: {
         AppRoutes.home: (context) => const HomePage(),
         AppRoutes.settings: (context) => const SettingsPage(),
+        AppRoutes.wallet: (context) => const WalletPage(),
       },
     );
   }
