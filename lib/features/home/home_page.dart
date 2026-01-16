@@ -4,6 +4,7 @@ import 'package:pulseos/core/utils/app_routes.dart';
 import '../../core/ui_kit/pulse_page.dart';
 import '../../core/ui_kit/pulse_buttons.dart';
 import '../../core/theme/pulse_theme.dart';
+import 'widgets/bento_grid.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -35,25 +36,20 @@ class HomePage extends StatelessWidget {
       ],
 
       // Пустое тело (пока)
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.grid_view,
-              size: 48,
-              color: Colors.white.withValues(alpha: .1),
+      body: Column(
+        children: [
+          const SizedBox(height: 10),
+          const BentoGrid(),
+
+          // Место для других виджетов (например, списка инструментов)
+          const SizedBox(height: 20),
+          const Center(
+            child: Text(
+              "Лента событий скоро появится...",
+              style: TextStyle(color: Colors.white24),
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Добро пожаловать",
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: .3),
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
