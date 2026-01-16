@@ -75,5 +75,13 @@ macos/Flutter/ephemeral/
 # Если будешь использовать drift/freezed, они генерируют эти файлы.
 # Можно оставить закомментированным, чтобы видеть их в гите,
 # или раскомментировать, чтобы не засорять коммиты.
-# *.g.dart
+.g.dart
 # *.freezed.dart
+
+
+# Игнорируем автогенерируемые файлы регистрации плагинов
+linux/flutter/generated_plugin_registrant.*
+linux/flutter/generated_plugins.cmake
+windows/flutter/generated_plugin_registrant.*
+windows/flutter/generated_plugins.cmake
+macos/Flutter/GeneratedPluginRegistrant.*
