@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/database/app_database.dart';
 import '../../presentation/wallet_provider.dart';
@@ -23,7 +24,17 @@ class _AccountDialogState extends State<AccountDialog> {
   bool _isMain = false;
   bool _isExcluded = false;
 
-  String _selectedColor = '#2fa33d'; // Зеленый по умолчанию
+  final List<String> _colors = [
+    '#2fa33d', // Green (Primary)
+    '#60A5FA', // Blue
+    '#F472B6', // Pink
+    '#FB923C', // Orange
+    '#C084FC', // Purple
+    '#F87171', // Red
+    '#2DD4BF', // Teal
+  ];
+
+  late String _selectedColor;
 
   @override
   void initState() {
@@ -32,6 +43,8 @@ class _AccountDialogState extends State<AccountDialog> {
     _digitsController.text = widget.account?.cardNumber4 ?? '';
     // Заполняем данными, если редактируем
     _nameController = TextEditingController(text: widget.account?.name ?? '');
+
+    _selectedColor = widget.account?.colorHex ?? _colors[0];
 
     // Баланс хранится в копейках (BigInt), конвертируем в рубли для UI
     double balance = 0;
@@ -45,8 +58,6 @@ class _AccountDialogState extends State<AccountDialog> {
           ? ''
           : balance.toStringAsFixed(balance % 1 == 0 ? 0 : 2),
     );
-
-    _selectedColor = widget.account?.colorHex ?? '#2fa33d';
 
     // Инициализируем переключатели из базы
     _isMain = acc?.isMain ?? false;
@@ -140,6 +151,63 @@ class _AccountDialogState extends State<AccountDialog> {
                 keyboardType: TextInputType.number,
               ),
 
+              const SizedBox(height: 20),
+
+              // --- ВЫБОР ЦВЕТА ---
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Цвет оформления",
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                // На случай, если цветов будет много
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _colors.map((colorHex) {
+                    final color = _hexToColor(colorHex);
+                    final isSelected = _selectedColor == colorHex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedColor =
+                              colorHex; // Теперь это сработает, так как это переменная
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(right: 12),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(color: Colors.white, width: 2.5)
+                              : Border.all(color: Colors.white10, width: 1),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: color.withOpacity(0.6),
+                                    blurRadius: 10,
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                size: 20,
+                                color: Colors.black45,
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
               const SizedBox(height: 20),
 
               // --- ПЕРЕКЛЮЧАТЕЛИ ---
