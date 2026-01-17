@@ -16,13 +16,30 @@ class WalletRepository {
   }
 
   // Создание
-  Future<int> createAccount(AccountsCompanion account) {
-    return _db.into(_db.accounts).insert(account);
+  Future<void> createAccount(AccountsCompanion account) {
+    return _db.transaction(() async {
+      // Если новый счет должен быть основным -> сбрасываем флаг у всех остальных
+      if (account.isMain.value == true) {
+        await (_db.update(_db.accounts)..where((t) => t.isMain.equals(true)))
+            .write(const AccountsCompanion(isMain: Value(false)));
+      }
+      // Вставляем новый
+      await _db.into(_db.accounts).insert(account);
+    });
   }
 
-  // Обновление (replace ищет по ID и заменяет все поля)
-  Future<bool> updateAccount(Account account) {
-    return _db.update(_db.accounts).replace(account);
+  // Обновить счет (с логикой единственного Main)
+  Future<void> updateAccount(Account account) {
+    return _db.transaction(() async {
+      // Если мы делаем этот счет основным -> сбрасываем остальных
+      if (account.isMain) {
+        await (_db.update(_db.accounts)
+              ..where((t) => t.id.isNotValue(account.id)))
+            .write(const AccountsCompanion(isMain: Value(false)));
+      }
+      // Обновляем текущий
+      await _db.update(_db.accounts).replace(account);
+    });
   }
 
   // Удаление
