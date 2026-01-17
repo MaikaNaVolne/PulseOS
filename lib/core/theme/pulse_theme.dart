@@ -15,6 +15,7 @@ class PulseColors {
   static const red = Color(0xFFF87171);
   static const teal = Color(0xFF2DD4BF);
   static const yellow = Color(0xFFFACC15);
+  static const green = Color(0xFF22C55E);
 
   // Текст
   static const textPrimary = Colors.white;
