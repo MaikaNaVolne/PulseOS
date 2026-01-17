@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:pulseos/core/ui_kit/pulse_pickers.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_large_number_input.dart';
@@ -69,7 +70,13 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
             value: DateFormat('d MMMM, HH:mm', 'ru').format(_selectedDate),
             icon: Icons.calendar_today,
             color: PulseColors.blue,
-            onTap: () async {},
+            onTap: () async {
+              final DateTime? picked = await PulsePickers.pickDateTime(
+                context,
+                initialDate: _selectedDate,
+              );
+              if (picked != null) setState(() => _selectedDate = picked);
+            },
           ),
           const SizedBox(height: 10),
 
