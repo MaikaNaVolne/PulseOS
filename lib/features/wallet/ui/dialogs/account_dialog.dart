@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/ui_kit/confirm_dialog.dart';
 import '../../presentation/wallet_provider.dart';
 import '../../../../core/theme/pulse_theme.dart';
 
@@ -236,11 +236,24 @@ class _AccountDialogState extends State<AccountDialog> {
                         Icons.delete_outline,
                         color: PulseColors.red,
                       ),
-                      onPressed: () {
-                        context.read<WalletProvider>().deleteAccount(
-                          widget.account!.id,
+                      onPressed: () async {
+                        // 1. Показываем окно подтверждения и ждем ответа
+                        final bool confirm = await ConfirmDialog.show(
+                          context,
+                          title: "Удалить счет?",
+                          content:
+                              "Это действие необратимо. Все транзакции этого счета также будут удалены.",
                         );
-                        Navigator.pop(context);
+
+                        // 2. Если пользователь нажал "Удалить" (true)
+                        if (confirm && mounted) {
+                          // Выполняем удаление
+                          context.read<WalletProvider>().deleteAccount(
+                            widget.account!.id,
+                          );
+                          // Закрываем сам диалог настроек
+                          Navigator.pop(context);
+                        }
                       },
                     ),
                   const Spacer(),
