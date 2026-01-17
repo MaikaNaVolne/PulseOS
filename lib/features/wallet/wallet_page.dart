@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:pulseos/features/wallet/presentation/wallet_provider.dart';
+import 'package:pulseos/features/wallet/ui/dialogs/account_dialog.dart';
 import '../../core/ui_kit/pulse_page.dart';
 import '../../core/theme/pulse_theme.dart';
 import 'ui/widgets/account_card.dart'; // Импортируем карточку
@@ -23,38 +27,50 @@ class WalletPage extends StatelessWidget {
           const SizedBox(height: 32),
 
           // 2. Заголовок секции счетов
-          _buildSectionHeader("МОИ СЧЕТА", Icons.add, () {}),
+          _buildSectionHeader("МОИ СЧЕТА", Icons.add, () {
+            showDialog(
+              context: context,
+              builder: (context) => const AccountDialog(),
+            );
+          }),
 
           const SizedBox(height: 16),
 
           // 3. Горизонтальная карусель карт
           SizedBox(
-            height: 190, // Высота с учетом тени и отступов
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                AccountCard(
-                  name: "Tinkoff Black",
-                  balance: "120 500",
-                  cardNumber: "5536",
-                  accentColor: Colors.yellow,
-                  onTap: () {},
-                ),
-                AccountCard(
-                  name: "Сбербанк",
-                  balance: "45 000",
-                  cardNumber: "1234",
-                  accentColor: Colors.green,
-                  onTap: () {},
-                ),
-                AccountCard(
-                  name: "Наличные",
-                  balance: "3 200",
-                  accentColor: Colors.orange,
-                  onTap: () {},
-                ),
-              ],
+            height: 190,
+            child: Consumer<WalletProvider>(
+              builder: (context, provider, child) {
+                if (provider.accounts.isEmpty) {
+                  return const Center(
+                    child: Text("Нет счетов. Добавьте первый!"),
+                  );
+                }
+
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: provider.accounts.length,
+                  itemBuilder: (context, index) {
+                    final account = provider.accounts[index];
+                    // Конвертируем цвет из HEX строки
+                    final color = _hexToColor(account.colorHex);
+
+                    return AccountCard(
+                      name: account.name,
+                      balance: (account.balance / BigInt.from(100))
+                          .toStringAsFixed(0),
+                      cardNumber: account.cardNumber4,
+                      accentColor: color,
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AccountDialog(account: account),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             ),
           ),
 
@@ -93,6 +109,11 @@ class WalletPage extends StatelessWidget {
       ],
     );
   }
+
+  // Вспомогательная функция (положи в utils)
+  Color _hexToColor(String hex) {
+    return Color(int.parse(hex.substring(1, 7), radix: 16) + 0xFF000000);
+  }
 }
 
 class _TotalBalanceBlock extends StatelessWidget {
@@ -100,6 +121,11 @@ class _TotalBalanceBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<WalletProvider>();
+
+    final double amout = provider.totalBalance.toDouble() / 100;
+    final formatter = NumberFormat("#,##0.00", "ru_RU");
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -116,9 +142,9 @@ class _TotalBalanceBlock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            const Text(
-              "168 700",
-              style: TextStyle(
+            Text(
+              formatter.format(amout),
+              style: const TextStyle(
                 fontSize: 40,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,

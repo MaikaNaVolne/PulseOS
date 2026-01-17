@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Для русской локали
+import 'package:provider/provider.dart';
 import 'package:pulseos/core/utils/app_routes.dart';
 import 'package:pulseos/features/wallet/wallet_page.dart';
+import 'core/di/service_locator.dart';
 import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
+import 'features/wallet/presentation/wallet_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Инициализация локали для дат
   await initializeDateFormatting('ru', null);
+  await initServices(); // База данных
 
-  runApp(const PulseApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        // Регистрируем наш кошелек
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
+      ],
+      child: const PulseApp(),
+    ),
+  );
 }
 
 class PulseApp extends StatelessWidget {

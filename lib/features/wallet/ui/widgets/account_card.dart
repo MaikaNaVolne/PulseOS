@@ -138,7 +138,7 @@ class AccountCard extends StatelessWidget {
   }
 
   String _maskCardNumber(String? number) {
-    if (number == null || number.length < 4) return "•••• 0000";
+    if (number == null || number.length < 4) return "•••• $number";
     return "•••• ${number.substring(number.length - 4)}";
   }
 }
