@@ -15,10 +15,37 @@ part 'app_database.g.dart';
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
-  AppDatabase.forTesting(QueryExecutor e) : super(e);
+  AppDatabase.forTesting(NativeDatabase db) : super(db);
+  @override
+  int get schemaVersion => 2; // Убедись, что версия актуальна
 
   @override
-  int get schemaVersion => 1;
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (m) async {
+        await m.createAll(); // Создаем все таблицы
+      },
+      onUpgrade: (m, from, to) async {
+        if (from < 2) {
+          await m.addColumn(accounts, accounts.cardNumber4);
+        }
+      },
+      beforeOpen: (details) async {
+        // 1. ВКЛЮЧАЕМ ПОДДЕРЖКУ ВНЕШНИХ КЛЮЧЕЙ (обязательно для SQLite)
+        await customStatement('PRAGMA foreign_keys = ON');
+
+        // 2. ДОБАВЛЯЕМ ДЕФОЛТНУЮ ВАЛЮТУ
+        // insertOnConflictUpdate не даст создать дубликат, если RUB уже есть
+        await into(currencies).insertOnConflictUpdate(
+          CurrenciesCompanion.insert(
+            code: 'RUB',
+            name: 'Российский рубль',
+            symbol: '₽',
+          ),
+        );
+      },
+    );
+  }
 }
 
 // Функция для открытия соединения

@@ -34,6 +34,7 @@ class Accounts extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get type => text()();
+  TextColumn get cardNumber4 => text().nullable().withLength(min: 4, max: 4)();
   TextColumn get currencyCode => text().references(Currencies, #code)();
   Int64Column get balance => int64().withDefault(Constant(BigInt.zero))();
   Int64Column get creditLimit => int64().withDefault(Constant(BigInt.zero))();
