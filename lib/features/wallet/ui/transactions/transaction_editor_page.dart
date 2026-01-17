@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:pulseos/core/ui_kit/pulse_pickers.dart';
+import '../../../../core/ui_kit/pulse_overlays.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_large_number_input.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../../presentation/wallet_provider.dart';
 import 'editor_components.dart';
 
 class TransactionEditorPage extends StatefulWidget {
@@ -16,16 +19,38 @@ class TransactionEditorPage extends StatefulWidget {
 }
 
 class _TransactionEditorPageState extends State<TransactionEditorPage> {
-  // State
+  // --- 1. ПРАВИЛЬНЫЕ ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
   String _type = 'expense';
   DateTime _selectedDate = DateTime.now();
+
+  // Храним ID счетов, а не просто названия
+  String? _selectedFromAccountId;
+  String? _selectedToAccountId;
+
   final _amountCtrl = TextEditingController();
   final _storeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
 
-  // Mock Data (заглушки)
-  String _selectedAccount = "Tinkoff Black"; // Тут будет Account
-  String _selectedCategory = "Продукты"; // Тут будет Category
+  @override
+  void initState() {
+    super.initState();
+
+    // --- 2. УСТАНОВКА СЧЕТА ПО УМОЛЧАНИЮ ---
+    // Выполняем после отрисовки кадра, чтобы провайдер был доступен
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final wallet = context.read<WalletProvider>();
+      if (wallet.accounts.isNotEmpty) {
+        // Ищем карту, помеченную как "Основная", иначе берем первую
+        final mainAccount = wallet.accounts.firstWhere(
+          (a) => a.isMain,
+          orElse: () => wallet.accounts.first,
+        );
+        setState(() {
+          _selectedFromAccountId = mainAccount.id;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,34 +105,28 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
           ),
           const SizedBox(height: 10),
 
-          EditorGlassTile(
-            label: _type == 'income' ? "ЗАЧИСЛИТЬ НА" : "СПИСАТЬ С",
-            value: _selectedAccount,
-            icon: Icons.account_balance_wallet,
-            color: PulseColors.primary,
-            onTap: () {},
+          AccountPickerSection(
+            type: _type,
+            selectedFromId: _selectedFromAccountId,
+            selectedToId: _selectedToAccountId,
+            onFromChanged: (id) => setState(() => _selectedFromAccountId = id),
+            onToChanged: (id) => setState(() => _selectedToAccountId = id),
           ),
 
-          // Для перевода показываем второе поле "Куда"
-          if (_type == 'transfer') ...[
-            const SizedBox(height: 10),
-            EditorGlassTile(
-              label: "ПЕРЕВЕСТИ НА",
-              value: "Сбербанк",
-              icon: Icons.redo,
-              color: PulseColors.teal,
-              onTap: () {},
-            ),
-          ],
-
+          // Категорию пока оставим как есть, её сделаем следующим шагом
           if (_type != 'transfer') ...[
             const SizedBox(height: 10),
             EditorGlassTile(
               label: "КАТЕГОРИЯ",
-              value: _selectedCategory,
+              value: "Выбрать категорию", // Тут будет логика позже
               icon: Icons.category,
               color: PulseColors.yellow,
-              onTap: () {},
+              onTap: () {
+                PulseOverlays.showComingSoon(
+                  context,
+                  featureName: "Выбор категорий",
+                );
+              },
             ),
           ],
 
@@ -138,10 +157,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: Save Logic
-                Navigator.pop(context);
-              },
+              onPressed: _saveTransaction,
               style: ElevatedButton.styleFrom(
                 backgroundColor: themeColor,
                 foregroundColor: Colors.black,
@@ -158,6 +174,20 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
         ],
       ),
     );
+  }
+
+  // МЕТОД СОХРАНЕНИЯ (ЗАГОТОВКА)
+  void _saveTransaction() {
+    if (_amountCtrl.text.isEmpty || _selectedFromAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Введите сумму и выберите счет")),
+      );
+      return;
+    }
+
+    // Пока просто закрываем, скоро напишем вызов провайдера
+    HapticFeedback.heavyImpact();
+    Navigator.pop(context);
   }
 
   Color _getTypeColor() {

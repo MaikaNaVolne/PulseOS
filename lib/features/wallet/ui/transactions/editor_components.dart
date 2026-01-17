@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../../presentation/wallet_provider.dart';
 
 // 1. ВЫБОР ТИПА (СЛАЙДЕР)
 class TransactionTypeSelector extends StatelessWidget {
@@ -188,6 +191,219 @@ class EditorInput extends StatelessWidget {
           hintText: hint,
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
           border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+}
+
+// 3. СЕКЦИЯ ВЫБОРА СЧЕТОВ
+class AccountPickerSection extends StatelessWidget {
+  final String type; // 'expense', 'income', 'transfer'
+  final String? selectedFromId;
+  final String? selectedToId;
+  final Function(String) onFromChanged;
+  final Function(String) onToChanged;
+
+  const AccountPickerSection({
+    super.key,
+    required this.type,
+    required this.selectedFromId,
+    this.selectedToId,
+    required this.onFromChanged,
+    required this.onToChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Получаем доступ к счетам через провайдер
+    final provider = context.watch<WalletProvider>();
+    final accounts = provider.accounts;
+
+    // Ищем выбранный счет или берем первый (основной) по умолчанию
+    final fromAccount = accounts.firstWhere(
+      (a) => a.id == selectedFromId,
+      orElse: () => accounts.isNotEmpty ? accounts.first : _emptyAccount(),
+    );
+
+    final toAccount = accounts.firstWhere(
+      (a) => a.id == selectedToId,
+      orElse: () => _emptyAccount(),
+    );
+
+    return Column(
+      children: [
+        // 1. ОТКУДА / КУДА (Основной счет)
+        EditorGlassTile(
+          label: type == 'income' ? "ЗАЧИСЛИТЬ НА" : "СПИСАТЬ С",
+          value: fromAccount.name,
+          icon: Icons.account_balance_wallet,
+          color: _hexToColor(fromAccount.colorHex),
+          onTap: () => _showAccountSheet(context, accounts, onFromChanged),
+        ),
+
+        // 2. ДЛЯ ПЕРЕВОДА (Второй счет)
+        if (type == 'transfer') ...[
+          const SizedBox(height: 10),
+          EditorGlassTile(
+            label: "ПЕРЕВЕСТИ НА",
+            value: toAccount.id.isEmpty ? "Выбрать счет" : toAccount.name,
+            icon: Icons.subdirectory_arrow_right,
+            color: toAccount.id.isEmpty
+                ? Colors.white30
+                : _hexToColor(toAccount.colorHex),
+            onTap: () => _showAccountSheet(context, accounts, onToChanged),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Заглушка, если счетов нет
+  // Заглушка, если счетов нет (все поля теперь заполнены)
+  Account _emptyAccount() => Account(
+    id: '',
+    name: 'Нет счетов',
+    type: 'card',
+    currencyCode: 'RUB',
+    balance: BigInt.zero,
+    creditLimit: BigInt.zero, // Добавили
+    colorHex: '#808080',
+    iconKey: 'wallet', // Добавили
+    isMain: false, // Добавили
+    isExcluded: false, // Добавили
+    isArchived: false, // Добавили
+  );
+
+  // Конвертер цвета
+  Color _hexToColor(String hex) {
+    try {
+      return Color(int.parse(hex.substring(1, 7), radix: 16) + 0xFF000000);
+    } catch (e) {
+      return Colors.grey;
+    }
+  }
+
+  // --- ЛОГИКА ДИАЛОГА (UI) ---
+  void _showAccountSheet(
+    BuildContext context,
+    List<Account> accounts,
+    Function(String) onSelect,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E202C), // Непрозрачный фон, чтобы текст читался
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Маркер для свайпа
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    "Выберите счет",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    itemCount: accounts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final acc = accounts[index];
+                      final color = _hexToColor(acc.colorHex);
+                      final balance = (acc.balance.toDouble() / 100)
+                          .toStringAsFixed(0);
+
+                      return GestureDetector(
+                        onTap: () {
+                          onSelect(acc.id);
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: color.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              // Цветная точка (миниатюра)
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+
+                              // Название
+                              Expanded(
+                                child: Text(
+                                  acc.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+
+                              // Баланс
+                              Text(
+                                "$balance ₽",
+                                style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
         ),
       ),
     );
