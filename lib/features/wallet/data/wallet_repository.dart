@@ -29,4 +29,29 @@ class WalletRepository {
   Future<int> deleteAccount(String id) {
     return (_db.delete(_db.accounts)..where((t) => t.id.equals(id))).go();
   }
+
+  // --- КАТЕГОРИИ ---
+
+  Stream<List<Category>> watchAllCategories() {
+    return (_db.select(
+      _db.categories,
+    )..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
+  }
+
+  // --- ТРАНЗАКЦИИ ---
+
+  Future<void> createTransaction({
+    required TransactionsCompanion transaction,
+    required List<TransactionItemsCompanion> items,
+  }) async {
+    return _db.transaction(() async {
+      // 1. Сохраняем саму транзакцию
+      await _db.into(_db.transactions).insert(transaction);
+
+      // 2. Сохраняем позиции чека (если есть)
+      for (var item in items) {
+        await _db.into(_db.transactionItems).insert(item);
+      }
+    });
+  }
 }

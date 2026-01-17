@@ -23,6 +23,9 @@ class WalletProvider extends ChangeNotifier {
     _init();
   }
 
+  // Кэш категорий для выбора
+  List<Category> categories = [];
+
   void _init() {
     // Начинаем слушать стрим из репозитория
     _accountsSubscription = _repo.watchAllAccounts().listen((data) {
@@ -31,6 +34,59 @@ class WalletProvider extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
     });
+
+    // Подписка на категории
+    _repo.watchAllCategories().listen((data) {
+      categories = data;
+      notifyListeners();
+    });
+  }
+
+  // МЕТОД СОЗДАНИЯ ТРАНЗАКЦИИ
+  Future<void> addTransaction({
+    required double amount,
+    required String type, // 'expense', 'income', 'transfer'
+    required String accountId,
+    String? toAccountId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+    String? storeName,
+    List<TransactionItemDto> items = const [], // DTO для позиций
+  }) async {
+    final transId = const Uuid().v4();
+    final dateFinal = date ?? DateTime.now();
+
+    // Конвертируем рубли в копейки
+    final amountCents = BigInt.from((amount * 100).round());
+
+    final transaction = TransactionsCompanion.insert(
+      id: transId,
+      type: type,
+      sourceAccountId: accountId,
+      targetAccountId: drift.Value(toAccountId),
+      categoryId: drift.Value(categoryId),
+      amount: amountCents,
+      date: dateFinal,
+      note: drift.Value(note),
+      shopName: drift.Value(storeName),
+    );
+
+    final itemCompanions = items.map((i) {
+      return TransactionItemsCompanion.insert(
+        id: const Uuid().v4(),
+        transactionId: transId,
+        name: i.name,
+        price: BigInt.from((i.price * 100).round()),
+        quantity: drift.Value(i.quantity),
+        categoryId: drift.Value(i.categoryId),
+      );
+    }).toList();
+
+    await _repo.createTransaction(
+      transaction: transaction,
+      items: itemCompanions,
+    );
   }
 
   void _calculateTotal() {
@@ -84,4 +140,18 @@ class WalletProvider extends ChangeNotifier {
     _accountsSubscription?.cancel();
     super.dispose();
   }
+}
+
+class TransactionItemDto {
+  final String name;
+  final double price;
+  final double quantity;
+  final String? categoryId;
+
+  TransactionItemDto({
+    required this.name,
+    required this.price,
+    this.quantity = 1.0,
+    this.categoryId,
+  });
 }

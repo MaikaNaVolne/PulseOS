@@ -6,7 +6,9 @@ import 'package:pulseos/features/wallet/ui/dialogs/account_dialog.dart';
 import 'package:pulseos/features/wallet/ui/widgets/wallet_tools_grid.dart';
 import '../../core/ui_kit/pulse_page.dart';
 import '../../core/theme/pulse_theme.dart';
-import 'ui/widgets/account_card.dart'; // Импортируем карточку
+import '../../core/utils/app_routes.dart';
+import 'ui/widgets/account_card.dart';
+import 'ui/widgets/quick_add_button.dart'; // Импортируем карточку
 
 class WalletPage extends StatelessWidget {
   const WalletPage({super.key});
@@ -25,9 +27,14 @@ class WalletPage extends StatelessWidget {
           // 1. Блок общего баланса
           const _TotalBalanceBlock(),
 
+          // 2. Кнопка перехода на транзакцию
+          QuickAddButton(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.transaction),
+          ),
+
           const SizedBox(height: 32),
 
-          // 2. Заголовок секции счетов
+          // 3. Заголовок секции счетов
           _buildSectionHeader("МОИ СЧЕТА", Icons.add, () {
             showDialog(
               context: context,
@@ -37,7 +44,7 @@ class WalletPage extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // 3. Горизонтальная карусель карт
+          // 4. Горизонтальная карусель карт
           SizedBox(
             height: 190,
             child: Consumer<WalletProvider>(

@@ -8,6 +8,7 @@ import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/wallet/presentation/wallet_provider.dart';
+import 'features/wallet/ui/transactions/transaction_editor_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,7 @@ class PulseApp extends StatelessWidget {
         AppRoutes.home: (context) => const HomePage(),
         AppRoutes.settings: (context) => const SettingsPage(),
         AppRoutes.wallet: (context) => const WalletPage(),
+        AppRoutes.transaction: (context) => const TransactionEditorPage(),
       },
     );
   }
