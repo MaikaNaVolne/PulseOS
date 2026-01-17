@@ -1,15 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/pulse_theme.dart';
 import '../../../core/ui_kit/pulse_overlays.dart';
 import '../../../core/utils/app_routes.dart';
+import '../../wallet/presentation/wallet_provider.dart';
 
 class BentoGrid extends StatelessWidget {
   const BentoGrid({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<WalletProvider>();
+    final double amout = provider.totalBalance.toDouble() / 100;
     return Column(
       children: [
         // ПЕРВЫЙ РЯД: Кошелек и Пульс
@@ -20,7 +24,7 @@ class BentoGrid extends StatelessWidget {
               child: _BentoCard(
                 height: 160,
                 title: "Баланс",
-                value: "15 420 ₽",
+                value: "$amout ₽",
                 subtitle: "+12% в этом мес.",
                 icon: Icons.account_balance_wallet_outlined,
                 color: PulseColors.primary,
