@@ -27,6 +27,8 @@ class WalletPage extends StatelessWidget {
           // 1. Блок общего баланса
           const _TotalBalanceBlock(),
 
+          const SizedBox(height: 18),
+
           // 2. Кнопка перехода на транзакцию
           QuickAddButton(
             onTap: () => Navigator.pushNamed(context, AppRoutes.transaction),
