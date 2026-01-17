@@ -87,6 +87,7 @@ dependencies:
   drift_dev: ^2.20.0
   sqlite3_flutter_libs: ^0.5.41
   path: ^1.9.1
+  get_it: ^9.2.0
 
 
 
