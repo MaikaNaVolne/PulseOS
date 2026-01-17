@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Для русской локали
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/core/utils/app_routes.dart';
 import 'package:pulseos/features/wallet/wallet_page.dart';
@@ -36,6 +37,19 @@ class PulseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: PulseTheme.darkTheme,
 
+      // Настройки локализации
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ru', 'RU'), // Русский
+      ],
+      locale: const Locale(
+        'ru',
+        'RU',
+      ), // Устанавливаем русский язык принудительно
       // Маршрутизация
       initialRoute: '/',
       routes: {
