@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/features/wallet/presentation/wallet_provider.dart';
 import 'package:pulseos/features/wallet/ui/dialogs/account_dialog.dart';
+import 'package:pulseos/features/wallet/ui/widgets/wallet_tools_grid.dart';
 import '../../core/ui_kit/pulse_page.dart';
 import '../../core/theme/pulse_theme.dart';
 import 'ui/widgets/account_card.dart'; // Импортируем карточку
@@ -76,9 +77,9 @@ class WalletPage extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // 4. Инструменты (Долги, отчеты и т.д.)
-          _buildSectionHeader("ИНСТРУМЕНТЫ", null, null),
-          // Тут позже будет сетка инструментов
+          const WalletToolsGrid(),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
