@@ -25,15 +25,6 @@ class _AccountDialogState extends State<AccountDialog> {
 
   String _selectedColor = '#2fa33d'; // Зеленый по умолчанию
 
-  // Доступные цвета для выбора
-  final List<String> _colors = [
-    '#2fa33d', // Green
-    '#60A5FA', // Blue
-    '#F472B6', // Pink
-    '#FB923C', // Orange
-    '#C084FC', // Purple
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -101,14 +92,6 @@ class _AccountDialogState extends State<AccountDialog> {
       );
       provider.updateAccount(updated);
     }
-    Navigator.pop(context);
-  }
-
-  void _delete() {
-    if (widget.account == null) return;
-
-    // Вызываем провайдер (нужно добавить метод deleteAccount в Provider и Repository)
-    context.read<WalletProvider>().deleteAccount(widget.account!.id);
     Navigator.pop(context);
   }
 
