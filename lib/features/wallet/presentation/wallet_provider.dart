@@ -24,10 +24,12 @@ class WalletProvider extends ChangeNotifier {
   }
 
   // Кэш категорий для выбора
-  List<Category> categories = [];
+  List<CategoryWithTags> categories = [];
+
+  StreamSubscription? _categoriesSubscription;
 
   void _init() {
-    // Начинаем слушать стрим из репозитория
+    // Счета
     _accountsSubscription = _repo.watchAllAccounts().listen((data) {
       accounts = data;
       _calculateTotal();
@@ -35,11 +37,63 @@ class WalletProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Подписка на категории
-    _repo.watchAllCategories().listen((data) {
-      categories = data;
+    // Категории + Теги
+    _categoriesSubscription = _repo.watchAllCategories().listen((cats) async {
+      final List<CategoryWithTags> list = [];
+      for (var c in cats) {
+        final tags = await _repo.getTagsForCategory(c.id);
+        list.add(CategoryWithTags(c, tags.map((t) => t.name).toList()));
+      }
+      categories = list;
       notifyListeners();
     });
+  }
+
+  Future<void> saveCategory({
+    required String? id,
+    required String name,
+    required String colorHex,
+    required String iconKey,
+    required List<String> tags,
+  }) async {
+    final catId = id ?? const Uuid().v4();
+
+    final category = CategoriesCompanion(
+      id: drift.Value(catId),
+      name: drift.Value(name),
+      colorHex: drift.Value(colorHex),
+      iconKey: drift.Value(iconKey),
+      moduleType: const drift.Value('finance'),
+    );
+
+    if (id == null) {
+      await _repo.createCategory(category);
+    } else {
+      final cat = Category(
+        id: catId,
+        name: name,
+        colorHex: colorHex,
+        iconKey: iconKey,
+        moduleType: 'finance',
+        parentId: null,
+      );
+      await _repo.updateCategory(cat);
+    }
+
+    // Сохраняем теги
+    if (tags.isNotEmpty) {
+      await _repo.updateTags(catId, tags);
+    }
+  }
+
+  // Метод для загрузки тегов при открытии диалога
+  Future<List<String>> getTags(String categoryId) async {
+    final tags = await _repo.getTagsForCategory(categoryId);
+    return tags.map((t) => t.name).toList();
+  }
+
+  Future<void> deleteCategory(String id) async {
+    await _repo.deleteCategory(id);
   }
 
   // МЕТОД СОЗДАНИЯ ТРАНЗАКЦИИ
@@ -138,6 +192,7 @@ class WalletProvider extends ChangeNotifier {
   @override
   void dispose() {
     _accountsSubscription?.cancel();
+    _categoriesSubscription?.cancel(); // Не забудь закрыть
     super.dispose();
   }
 }
@@ -154,4 +209,10 @@ class TransactionItemDto {
     this.quantity = 1.0,
     this.categoryId,
   });
+}
+
+class CategoryWithTags {
+  final Category category;
+  final List<String> tags;
+  CategoryWithTags(this.category, this.tags);
 }

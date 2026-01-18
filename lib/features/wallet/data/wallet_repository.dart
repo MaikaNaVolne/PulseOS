@@ -1,4 +1,6 @@
 import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
 
 class WalletRepository {
@@ -70,5 +72,50 @@ class WalletRepository {
         await _db.into(_db.transactionItems).insert(item);
       }
     });
+  }
+
+  // Создать категорию
+  Future<void> createCategory(CategoriesCompanion category) {
+    return _db.into(_db.categories).insert(category);
+  }
+
+  // Обновить категорию
+  Future<void> updateCategory(Category category) {
+    return _db.update(_db.categories).replace(category);
+  }
+
+  // Удалить категорию (теги удалятся каскадно, если настроено в БД)
+  Future<void> deleteCategory(String id) {
+    return (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();
+  }
+
+  // --- ТЕГИ ---
+
+  // Сохранить список тегов для категории (удаляет старые, пишет новые)
+  Future<void> updateTags(String categoryId, List<String> tagNames) {
+    return _db.transaction(() async {
+      await (_db.delete(
+        _db.tags,
+      )..where((t) => t.categoryId.equals(categoryId))).go();
+
+      for (var name in tagNames) {
+        await _db
+            .into(_db.tags)
+            .insert(
+              TagsCompanion.insert(
+                id: const Uuid().v4(),
+                categoryId: drift.Value(categoryId),
+                name: name,
+              ),
+            );
+      }
+    });
+  }
+
+  // Получить теги для категории (Async Future для диалога)
+  Future<List<Tag>> getTagsForCategory(String categoryId) {
+    return (_db.select(
+      _db.tags,
+    )..where((t) => t.categoryId.equals(categoryId))).get();
   }
 }

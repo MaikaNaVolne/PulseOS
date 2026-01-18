@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:pulseos/features/wallet/presentation/wallet_provider.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
@@ -12,8 +14,8 @@ class CategoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // В будущем здесь будет Consumer<CategoryProvider>
-    final List<Category> categories = [];
+    final wallet = context.watch<WalletProvider>();
+    final categories = wallet.categories;
 
     return PulsePage(
       title: "Категории",
@@ -28,16 +30,19 @@ class CategoryPage extends StatelessWidget {
 
       body: categories.isEmpty
           ? const Center(
-              child: Text(
-                "Нет категорий",
-                style: TextStyle(color: Colors.white24),
+              child: Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: Text(
+                  "Нет категорий",
+                  style: TextStyle(color: Colors.white24),
+                ),
               ),
             )
           : Column(
-              children: categories.map((cat) {
+              children: categories.map((item) {
                 return CategoryCard(
-                  category: cat,
-                  onTap: () => _showDialog(context, category: cat),
+                  category: item.category,
+                  onTap: () => _showDialog(context, category: item.category),
                 );
               }).toList(),
             ),

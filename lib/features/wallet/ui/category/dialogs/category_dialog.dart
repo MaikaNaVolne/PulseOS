@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../../../../core/theme/pulse_theme.dart';
 import '../../../../../core/database/app_database.dart';
+import '../../../presentation/wallet_provider.dart';
 
 class CategoryDialog extends StatefulWidget {
   final Category? category;
@@ -35,7 +37,40 @@ class _CategoryDialogState extends State<CategoryDialog> {
     if (widget.category != null) {
       _nameController.text = widget.category!.name;
       _selectedColor = widget.category!.colorHex;
+      _loadTags();
     }
+  }
+
+  void _loadTags() async {
+    // Получаем теги из провайдера
+    final tags = await context.read<WalletProvider>().getTags(
+      widget.category!.id,
+    );
+    setState(() {
+      _tags = tags;
+    });
+  }
+
+  // Метод редактирования тега
+  void _editTag(int index) {
+    final ctrl = TextEditingController(text: _tags[index]);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E202C),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          onSubmitted: (val) {
+            if (val.isNotEmpty) {
+              setState(() => _tags[index] = val); // Обновляем список
+              Navigator.pop(ctx);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   void _addTag() {
@@ -57,8 +92,14 @@ class _CategoryDialogState extends State<CategoryDialog> {
   void _save() {
     if (_nameController.text.isEmpty) return;
 
-    // TODO: Вызвать метод сохранения через Provider
-    // context.read<CategoryProvider>().saveCategory(...)
+    // Вызываем провайдер
+    context.read<WalletProvider>().saveCategory(
+      id: widget.category?.id, // Если null, создастся новая
+      name: _nameController.text,
+      colorHex: _selectedColor,
+      iconKey: 'category', // Пока заглушка, потом сделаем пикер
+      tags: _tags,
+    );
 
     Navigator.pop(context);
   }
@@ -241,21 +282,16 @@ class _CategoryDialogState extends State<CategoryDialog> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              tag,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.9),
-                              ),
+                            // КЛИК ДЛЯ РЕДАКТИРОВАНИЯ
+                            GestureDetector(
+                              onTap: () => _editTag(_tags.indexOf(tag)),
+                              child: Text(tag),
                             ),
                             const SizedBox(width: 6),
+                            // КРЕСТИК ДЛЯ УДАЛЕНИЯ
                             GestureDetector(
                               onTap: () => _removeTag(tag),
-                              child: Icon(
-                                Icons.close,
-                                size: 14,
-                                color: Colors.white.withValues(alpha: 0.5),
-                              ),
+                              child: Icon(Icons.close),
                             ),
                           ],
                         ),
