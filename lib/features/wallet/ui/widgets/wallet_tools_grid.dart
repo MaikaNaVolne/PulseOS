@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:pulseos/core/utils/app_routes.dart';
 import '../../../../../core/theme/pulse_theme.dart';
 import '../../../../../core/ui_kit/pulse_overlays.dart';
 
@@ -44,6 +45,7 @@ class WalletToolsGrid extends StatelessWidget {
         'title': 'Категории',
         'icon': Icons.category_outlined,
         'color': PulseColors.yellow,
+        'route': AppRoutes.category,
       },
     ];
 
@@ -82,10 +84,17 @@ class WalletToolsGrid extends StatelessWidget {
               title: tool['title'],
               icon: tool['icon'],
               color: tool['color'],
-              onTap: () => PulseOverlays.showComingSoon(
-                context,
-                featureName: tool['title'],
-              ),
+              onTap: () => {
+                if (tool['route'] != null)
+                  {Navigator.pushNamed(context, tool['route']!)}
+                else
+                  {
+                    PulseOverlays.showComingSoon(
+                      context,
+                      featureName: tool['title'],
+                    ),
+                  },
+              },
             );
           },
         ),

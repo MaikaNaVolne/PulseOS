@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart'; // Для русской ло
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/core/utils/app_routes.dart';
+import 'package:pulseos/features/wallet/ui/category/category_page.dart';
 import 'package:pulseos/features/wallet/wallet_page.dart';
 import 'core/di/service_locator.dart';
 import 'core/theme/pulse_theme.dart';
@@ -57,6 +58,7 @@ class PulseApp extends StatelessWidget {
         AppRoutes.settings: (context) => const SettingsPage(),
         AppRoutes.wallet: (context) => const WalletPage(),
         AppRoutes.transaction: (context) => const TransactionEditorPage(),
+        AppRoutes.category: (context) => const CategoryPage(),
       },
     );
   }

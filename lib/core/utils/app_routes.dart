@@ -3,4 +3,5 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String wallet = '/wallet';
   static const String transaction = '/wallet/transaction';
+  static const String category = '/wallet/category';
 }
