@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../../../../core/utils/app_routes.dart';
 import '../../presentation/wallet_provider.dart';
+import '../../../../core/utils/icon_helper.dart';
 
 // 1. ВЫБОР ТИПА (СЛАЙДЕР)
 class TransactionTypeSelector extends StatelessWidget {
@@ -404,6 +406,198 @@ class AccountPickerSection extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class CategoryPickerSection extends StatelessWidget {
+  final String? selectedCategoryId;
+  final Function(String) onCategoryChanged;
+
+  const CategoryPickerSection({
+    super.key,
+    required this.selectedCategoryId,
+    required this.onCategoryChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Ищем выбранную категорию в провайдере
+    final provider = context.watch<WalletProvider>();
+    // provider.categories теперь хранит CategoryWithTags
+
+    Category? selectedCategory;
+    try {
+      selectedCategory = provider.categories
+          .firstWhere((c) => c.category.id == selectedCategoryId)
+          .category;
+    } catch (_) {}
+
+    final name = selectedCategory?.name ?? "Выбрать категорию";
+    final icon = selectedCategory != null
+        ? getIcon(selectedCategory.iconKey ?? 'category')
+        : Icons.category;
+    final color = selectedCategory != null
+        ? _hexToColor(selectedCategory.colorHex)
+        : PulseColors.yellow;
+
+    return EditorGlassTile(
+      label: "КАТЕГОРИЯ",
+      value: name,
+      icon: icon,
+      color: color,
+      onTap: () =>
+          _showCategorySheet(context, provider.categories, onCategoryChanged),
+    );
+  }
+
+  // Вспомогательный метод цвета
+  Color _hexToColor(String hex) {
+    try {
+      return Color(int.parse(hex.substring(1, 7), radix: 16) + 0xFF000000);
+    } catch (e) {
+      return Colors.grey;
+    }
+  }
+
+  void _showCategorySheet(
+    BuildContext context,
+    List<CategoryWithTags> categories,
+    Function(String) onSelect,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true, // Чтобы можно было растянуть на пол-экрана
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E202C),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 15),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  "Выберите категорию",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(20),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: categories.length + 1, // +1 для кнопки "Настроить"
+                  itemBuilder: (ctx, index) {
+                    if (index == categories.length) {
+                      return _ManageButton(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.pushNamed(context, AppRoutes.category);
+                        },
+                      );
+                    }
+
+                    final item = categories[index];
+                    final cat = item.category;
+                    final color = _hexToColor(cat.colorHex);
+
+                    return GestureDetector(
+                      onTap: () {
+                        onSelect(cat.id);
+                        Navigator.pop(ctx);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              getIcon(cat.iconKey ?? 'category'),
+                              color: color,
+                              size: 28,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              cat.name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManageButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ManageButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.settings, color: Colors.white54, size: 24),
+            SizedBox(height: 8),
+            Text(
+              "Настроить",
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
         ),
       ),
     );

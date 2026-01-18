@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/core/ui_kit/pulse_pickers.dart';
-import '../../../../core/ui_kit/pulse_overlays.dart';
+import '../../../../core/database/app_database.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_large_number_input.dart';
@@ -26,6 +26,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   // Храним ID счетов, а не просто названия
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
+  String? _selectedCategoryId;
 
   final _amountCtrl = TextEditingController();
   final _storeCtrl = TextEditingController();
@@ -116,18 +117,18 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
           // Категорию пока оставим как есть, её сделаем следующим шагом
           if (_type != 'transfer') ...[
             const SizedBox(height: 10),
-            EditorGlassTile(
-              label: "КАТЕГОРИЯ",
-              value: "Выбрать категорию", // Тут будет логика позже
-              icon: Icons.category,
-              color: PulseColors.yellow,
-              onTap: () {
-                PulseOverlays.showComingSoon(
-                  context,
-                  featureName: "Выбор категорий",
-                );
+            CategoryPickerSection(
+              selectedCategoryId: _selectedCategoryId,
+              onCategoryChanged: (id) {
+                setState(() => _selectedCategoryId = id);
               },
             ),
+          ],
+
+          // ТЕГИ (Показываем только если категория выбрана и не перевод)
+          if (_type != 'transfer' && _selectedCategoryId != null) ...[
+            const SizedBox(height: 12),
+            _buildTagsList(context), // <--- Реализуем метод ниже
           ],
 
           const SizedBox(height: 20),
@@ -172,6 +173,52 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTagsList(BuildContext context) {
+    final provider = context.read<WalletProvider>();
+    // Ищем теги для выбранной категории
+    final categoryData = provider.categories.firstWhere(
+      (c) => c.category.id == _selectedCategoryId,
+      orElse: () => CategoryWithTags(
+        Category(
+          id: 'temp',
+          name: 'temp',
+          iconKey: 'help',
+          colorHex: '#808080',
+          moduleType: '',
+        ),
+        [],
+      ),
+    );
+
+    if (categoryData.tags.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 36,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: categoryData.tags.length,
+        itemBuilder: (context, index) {
+          final tag = categoryData.tags[index];
+          // Тут можно добавить логику выделения (isSelected)
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white10),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              tag,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          );
+        },
       ),
     );
   }
