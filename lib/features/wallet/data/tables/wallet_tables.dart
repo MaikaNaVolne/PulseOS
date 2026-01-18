@@ -29,6 +29,22 @@ class Categories extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class Tags extends Table {
+  TextColumn get id => text()();
+
+  // Связь с категорией
+  TextColumn get categoryId => text().nullable().references(
+    Categories,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+
+  TextColumn get name => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 // --- 3. СЧЕТА ---
 class Accounts extends Table {
   TextColumn get id => text()();

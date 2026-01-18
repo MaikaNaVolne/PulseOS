@@ -11,7 +11,14 @@ import '../../features/wallet/data/tables/wallet_tables.dart';
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: [Currencies, Categories, Accounts, Transactions, TransactionItems],
+  tables: [
+    Currencies,
+    Categories,
+    Tags,
+    Accounts,
+    Transactions,
+    TransactionItems,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
