@@ -11,6 +11,8 @@ import '../../../../core/theme/pulse_theme.dart';
 import '../../presentation/wallet_provider.dart';
 import 'dialog/add_item_dialog.dart';
 import 'editor_components.dart';
+import '../../../../core/utils/number_formatters.dart';
+import 'utils/transaction_types.dart';
 
 class TransactionEditorPage extends StatefulWidget {
   const TransactionEditorPage({super.key});
@@ -21,21 +23,58 @@ class TransactionEditorPage extends StatefulWidget {
 
 class _TransactionEditorPageState extends State<TransactionEditorPage> {
   // --- ДОБАВИТЬ ЭТИ ПЕРЕМЕННЫЕ ---
-  String _type = 'expense';
+  TransactionType _type = TransactionType.expense;
   DateTime _selectedDate = DateTime.now();
-  String? _selectedFromAccountId;
-  String? _selectedToAccountId;
-  String? _selectedCategoryId;
+
+  String? _fromAccountId;
+  String? _toAccountId;
+  String? _categoryId;
   String? _activeTagForBatching;
 
-  // Список товаров в чеке
-  List<TransactionItemDto> _items = [];
+  final List<TransactionItemDto> _items = [];
 
   final _amountCtrl = TextEditingController();
   final _storeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
-
   final _recipientCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Инициализация данных (вынесена из build)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initDefaultAccount());
+  }
+
+  void _initDefaultAccount() {
+    final wallet = context.read<WalletProvider>();
+    if (wallet.accounts.isNotEmpty && _fromAccountId == null) {
+      final main = wallet.accounts.firstWhere(
+        (a) => a.isMain,
+        orElse: () => wallet.accounts.first,
+      );
+      setState(() => _fromAccountId = main.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _storeCtrl.dispose();
+    _noteCtrl.dispose();
+    _recipientCtrl.dispose();
+    super.dispose();
+  }
+
+  // --- ДОБАВИТЬ МЕТОД ПЕРЕСЧЕТА СУММЫ ---
+  void _recalculateTotal() {
+    if (_items.isEmpty) return;
+
+    final total = _items.fold(
+      0.0,
+      (sum, item) => sum + (item.price * item.quantity),
+    );
+    _amountCtrl.text = total.toCurrencyString(); // Используем Extension
+  }
 
   // --- ДОБАВИТЬ МЕТОД ДОБАВЛЕНИЯ ТОВАРА ---
   void _addItem() async {
@@ -47,184 +86,172 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
 
     if (newItem != null) {
       setState(() {
-        _items.add(newItem); // Просто добавляем, конвертация не нужна
+        _items.add(newItem);
         _recalculateTotal();
       });
     }
   }
 
-  // --- ДОБАВИТЬ МЕТОД ПЕРЕСЧЕТА СУММЫ ---
-  void _recalculateTotal() {
-    if (_items.isEmpty) return;
-
-    double totalRubles = 0;
-    for (var item in _items) {
-      // Цена в DTO уже в рублях. Никакого деления на 100!
-      totalRubles += item.price * item.quantity;
+  // МЕТОД СОХРАНЕНИЯ (ЗАГОТОВКА)
+  Future<void> _saveTransaction() async {
+    // 1. Валидация
+    if (_amountCtrl.text.isEmpty) {
+      _showSnack("Введите сумму", isError: true);
+      return;
+    }
+    if (_fromAccountId == null) {
+      _showSnack("Выберите счет", isError: true);
+      return;
     }
 
-    setState(() {
-      // Округляем до 2 знаков после запятой, чтобы не было 199.9900000004
-      _amountCtrl.text = totalRubles.toStringAsFixed(2);
+    // 2. Подготовка данных
+    HapticFeedback.mediumImpact();
+    final amount =
+        double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0.0;
 
-      if (_amountCtrl.text.endsWith(".00")) {
-        _amountCtrl.text = _amountCtrl.text.substring(
-          0,
-          _amountCtrl.text.length - 3,
-        );
-      }
-    });
+    // Определяем имя магазина/получателя
+    String? storeName = _storeCtrl.text.isNotEmpty ? _storeCtrl.text : null;
+    if (_type == TransactionType.transferPerson &&
+        _recipientCtrl.text.isNotEmpty) {
+      storeName = _recipientCtrl.text;
+    }
+
+    // 3. Сохранение
+    await context.read<WalletProvider>().addTransaction(
+      amount: amount,
+      type: _type.dbValue,
+      accountId: _fromAccountId!,
+      toAccountId: _toAccountId,
+      categoryId: _categoryId,
+      date: _selectedDate,
+      storeName: storeName,
+      note: _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null,
+      items: _items,
+    );
+
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = _getTypeColor();
-    final wallet = context.watch<WalletProvider>();
-    if (_selectedFromAccountId == null && wallet.accounts.isNotEmpty) {
-      final mainAccount = wallet.accounts.firstWhere(
-        (a) => a.isMain,
-        orElse: () => wallet.accounts.first,
-      );
-      // Важно: делаем это в микротаске, чтобы не сломать build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          _selectedFromAccountId = mainAccount.id;
-        });
-      });
-    }
-
     return PulsePage(
       title: "Операция",
-      subtitle: _getTypeSubtitle(),
-      accentColor: themeColor,
+      subtitle: _type.subtitle, // Из Enum
+      accentColor: _type.color, // Из Enum
       showBackButton: true,
-
-      // Кнопка скана
       actions: [
         GlassCircleButton(
           icon: Icons.qr_code_scanner,
-          onTap: () {
-            HapticFeedback.mediumImpact();
-          },
+          onTap: () => HapticFeedback.mediumImpact(),
         ),
       ],
-
       body: Column(
         children: [
           const SizedBox(height: 10),
-
-          // 1. ТИП ОПЕРАЦИИ
-          TransactionTypeSelector(
-            currentType: _type,
-            onTypeChanged: (val) => setState(() => _type = val),
-          ),
-
+          _buildTypeSelector(),
           const SizedBox(height: 30),
-
-          // 2. СУММА
-          PulseLargeNumberInput(controller: _amountCtrl, color: themeColor),
-
+          _buildAmountInput(),
           const SizedBox(height: 30),
-
-          // 3. ОСНОВНЫЕ ПАРАМЕТРЫ
-          EditorGlassTile(
-            label: "ДАТА И ВРЕМЯ",
-            value: DateFormat('d MMMM, HH:mm', 'ru').format(_selectedDate),
-            icon: Icons.calendar_today,
-            color: PulseColors.blue,
-            onTap: () async {
-              final DateTime? picked = await PulsePickers.pickDateTime(
-                context,
-                initialDate: _selectedDate,
-              );
-              if (picked != null) setState(() => _selectedDate = picked);
-            },
-          ),
-          const SizedBox(height: 10),
-
-          AccountPickerSection(
-            type: _type,
-            selectedFromId: _selectedFromAccountId,
-            selectedToId: _selectedToAccountId,
-            onFromChanged: (id) => setState(() => _selectedFromAccountId = id),
-            onToChanged: (id) => setState(() => _selectedToAccountId = id),
-          ),
-
-          // Категория
-          if (_type != 'transfer') ...[
-            const SizedBox(height: 10),
-            CategoryPickerSection(
-              selectedCategoryId: _selectedCategoryId,
-              onCategoryChanged: (id) {
-                setState(() => _selectedCategoryId = id);
-              },
-            ),
-          ],
-
-          // ТЕГИ (Показываем только если категория выбрана и не перевод)
-          if (_type != 'transfer' && _selectedCategoryId != null) ...[
-            const SizedBox(height: 12),
-            _buildTagsList(context),
-          ],
-
+          _buildMainProperties(),
           const SizedBox(height: 20),
-
-          // ДЛЯ ПЕРЕВОДА ЛЮДЯМ
-          if (_type == 'transfer_person') ...[
-            const SizedBox(height: 12),
-            EditorInput(
-              hint: "Кому (Имя или контакт)",
-              icon: Icons.person_outline,
-              controller: _recipientCtrl,
-            ),
-          ],
-
-          const SizedBox(height: 20),
-
-          // 4. ДЕТАЛИ
-          if (_type != 'transfer' && _type != 'transfer_person') ...[
-            EditorInput(
-              hint: "Магазин / Организация",
-              icon: Icons.storefront,
-              controller: _storeCtrl,
-            ),
-            const SizedBox(height: 10),
-          ],
-          const SizedBox(height: 10),
-          EditorInput(
-            hint: "Заметка к операции",
-            icon: Icons.notes,
-            controller: _noteCtrl,
-          ),
-
+          _buildDetailsInputs(),
           const SizedBox(height: 30),
-
-          // 5. ПОЗИЦИИ (Items)
-          if (_type != 'transfer') _buildItemsSection(),
-
+          _buildItemsSection(),
           const SizedBox(height: 30),
-
-          // КНОПКА СОХРАНИТЬ
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _saveTransaction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: const Text(
-                "СОХРАНИТЬ",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
+          _buildSaveButton(),
         ],
       ),
+    );
+  }
+
+  Widget _buildTypeSelector() {
+    // В компонентах нужно обновить селектор, чтобы принимал Enum,
+    // или пока мапим вручную для совместимости
+    return TransactionTypeSelector(
+      currentType: _type.dbValue,
+      onTypeChanged: (val) {
+        // Конвертируем строку обратно в Enum
+        final newType = TransactionType.values.firstWhere(
+          (e) => e.dbValue == val,
+        );
+        setState(() => _type = newType);
+      },
+    );
+  }
+
+  Widget _buildAmountInput() {
+    return PulseLargeNumberInput(controller: _amountCtrl, color: _type.color);
+  }
+
+  Widget _buildMainProperties() {
+    return Column(
+      children: [
+        // Дата
+        EditorGlassTile(
+          label: "ДАТА И ВРЕМЯ",
+          value: DateFormat('d MMMM, HH:mm', 'ru').format(_selectedDate),
+          icon: Icons.calendar_today,
+          color: PulseColors.blue,
+          onTap: () async {
+            final picked = await PulsePickers.pickDateTime(
+              context,
+              initialDate: _selectedDate,
+            );
+            if (picked != null) setState(() => _selectedDate = picked);
+          },
+        ),
+        const SizedBox(height: 10),
+
+        // Счета
+        AccountPickerSection(
+          type: _type.dbValue,
+          selectedFromId: _fromAccountId,
+          selectedToId: _toAccountId,
+          onFromChanged: (id) => setState(() => _fromAccountId = id),
+          onToChanged: (id) => setState(() => _toAccountId = id),
+        ),
+
+        // Категория (если не перевод)
+        if (_type != TransactionType.transfer) ...[
+          const SizedBox(height: 10),
+          CategoryPickerSection(
+            selectedCategoryId: _categoryId,
+            onCategoryChanged: (id) => setState(() => _categoryId = id),
+          ),
+
+          // Теги (вынесены в отдельный метод для чистоты)
+          if (_categoryId != null) _buildTagsRow(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTagsRow() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: _buildTagsList(context), // Твой старый метод, можно оставить
+    );
+  }
+
+  Widget _buildDetailsInputs() {
+    return Column(
+      children: [
+        if (_type == TransactionType.transferPerson)
+          EditorInput(
+            hint: "Кому (Имя)",
+            icon: Icons.person_outline,
+            controller: _recipientCtrl,
+          )
+        else if (_type != TransactionType.transfer)
+          EditorInput(
+            hint: "Магазин",
+            icon: Icons.storefront,
+            controller: _storeCtrl,
+          ),
+
+        const SizedBox(height: 10),
+        EditorInput(hint: "Заметка", icon: Icons.notes, controller: _noteCtrl),
+      ],
     );
   }
 
@@ -232,7 +259,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
     final provider = context.read<WalletProvider>();
     // Ищем теги для выбранной категории
     final categoryData = provider.categories.firstWhere(
-      (c) => c.category.id == _selectedCategoryId,
+      (c) => c.category.id == _categoryId,
       orElse: () => CategoryWithTags(
         Category(
           id: 'temp',
@@ -311,64 +338,25 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
     );
   }
 
-  // МЕТОД СОХРАНЕНИЯ (ЗАГОТОВКА)
-  void _saveTransaction() async {
-    // 1. Валидация
-    if (_amountCtrl.text.isEmpty) {
-      _showSnack("Введите сумму", isError: true);
-      return;
-    }
-    if (_selectedFromAccountId == null) {
-      _showSnack("Выберите счет списания", isError: true);
-      return;
-    }
-
-    String? finalStoreName;
-
-    if (_type == 'transfer_person') {
-      // Если перевод человеку - берем из поля "Кому"
-      finalStoreName = _recipientCtrl.text.isNotEmpty
-          ? _recipientCtrl.text
-          : null;
-    } else {
-      // Иначе берем из поля "Магазин"
-      finalStoreName = _storeCtrl.text.isNotEmpty ? _storeCtrl.text : null;
-    }
-
-    HapticFeedback.mediumImpact();
-
-    // Парсим сумму
-    final double amount =
-        double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0.0;
-
-    // 2. Вызываем провайдер
-    final provider = context.read<WalletProvider>();
-
-    await provider.addTransaction(
-      amount: amount,
-      type: _type,
-      accountId: _selectedFromAccountId!,
-      toAccountId: _selectedToAccountId,
-      categoryId: _selectedCategoryId,
-      date: _selectedDate,
-      storeName: finalStoreName,
-      note: _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null,
-
-      // ИСПРАВЛЕНИЕ ЗДЕСЬ:
-      items: _items
-          .map(
-            (i) => TransactionItemDto(
-              name: i.name,
-              // Переводим BigInt копейки назад в double рубли для DTO
-              price: i.price.toDouble() / 100,
-              quantity: i.quantity,
-              categoryId: i.categoryId,
-            ),
-          )
-          .toList(),
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _saveTransaction,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _type.color,
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        child: const Text(
+          "СОХРАНИТЬ",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
     );
-
-    if (mounted) Navigator.pop(context);
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -378,32 +366,6 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
         backgroundColor: isError ? PulseColors.red : PulseColors.green,
       ),
     );
-  }
-
-  Color _getTypeColor() {
-    switch (_type) {
-      case 'income':
-        return PulseColors.green;
-      case 'transfer':
-        return PulseColors.blue;
-      case 'transfer_person':
-        return PulseColors.purple;
-      default:
-        return PulseColors.red;
-    }
-  }
-
-  String _getTypeSubtitle() {
-    switch (_type) {
-      case 'income':
-        return "ДОХОД";
-      case 'transfer':
-        return "ПЕРЕВОД";
-      case 'transfer_person':
-        return "ЛЮДЯМ";
-      default:
-        return "РАСХОД";
-    }
   }
 
   Widget _buildItemsSection() {
