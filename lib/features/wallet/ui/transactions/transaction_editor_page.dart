@@ -182,11 +182,14 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
           const SizedBox(height: 20),
 
           // 4. ДЕТАЛИ
-          EditorInput(
-            hint: "Магазин / Организация",
-            icon: Icons.storefront,
-            controller: _storeCtrl,
-          ),
+          if (_type != 'transfer' && _type != 'transfer_person') ...[
+            EditorInput(
+              hint: "Магазин / Организация",
+              icon: Icons.storefront,
+              controller: _storeCtrl,
+            ),
+            const SizedBox(height: 10),
+          ],
           const SizedBox(height: 10),
           EditorInput(
             hint: "Заметка к операции",
@@ -197,7 +200,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
           const SizedBox(height: 30),
 
           // 5. ПОЗИЦИИ (Items)
-          _buildItemsSection(),
+          if (_type != 'transfer') _buildItemsSection(),
 
           const SizedBox(height: 30),
 
