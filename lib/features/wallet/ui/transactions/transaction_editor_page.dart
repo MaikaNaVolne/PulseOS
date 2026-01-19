@@ -9,6 +9,7 @@ import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_large_number_input.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../presentation/wallet_provider.dart';
+import 'dialog/add_item_dialog.dart';
 import 'editor_components.dart';
 
 class TransactionEditorPage extends StatefulWidget {
@@ -19,36 +20,56 @@ class TransactionEditorPage extends StatefulWidget {
 }
 
 class _TransactionEditorPageState extends State<TransactionEditorPage> {
-  // --- 1. ПРАВИЛЬНЫЕ ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
+  // --- ДОБАВИТЬ ЭТИ ПЕРЕМЕННЫЕ ---
   String _type = 'expense';
   DateTime _selectedDate = DateTime.now();
-
-  // Храним ID счетов, а не просто названия
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
   String? _selectedCategoryId;
+  String? _activeTagForBatching;
+
+  // Список товаров в чеке
+  List<TransactionItemDto> _items = []; // <--- ВОТ ЭТОГО НЕ ХВАТАЛО
 
   final _amountCtrl = TextEditingController();
   final _storeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
+  // --- ДОБАВИТЬ МЕТОД ДОБАВЛЕНИЯ ТОВАРА ---
+  void _addItem() async {
+    // Диалог теперь возвращает DTO
+    final newItem = await showDialog<TransactionItemDto>(
+      context: context,
+      builder: (_) => const AddItemDialog(),
+    );
 
-    // --- 2. УСТАНОВКА СЧЕТА ПО УМОЛЧАНИЮ ---
-    // Выполняем после отрисовки кадра, чтобы провайдер был доступен
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final wallet = context.read<WalletProvider>();
-      if (wallet.accounts.isNotEmpty) {
-        // Ищем карту, помеченную как "Основная", иначе берем первую
-        final mainAccount = wallet.accounts.firstWhere(
-          (a) => a.isMain,
-          orElse: () => wallet.accounts.first,
+    if (newItem != null) {
+      setState(() {
+        _items.add(newItem); // Просто добавляем, конвертация не нужна
+        _recalculateTotal();
+      });
+    }
+  }
+
+  // --- ДОБАВИТЬ МЕТОД ПЕРЕСЧЕТА СУММЫ ---
+  void _recalculateTotal() {
+    if (_items.isEmpty) return;
+
+    double totalRubles = 0;
+    for (var item in _items) {
+      // Цена в DTO уже в рублях. Никакого деления на 100!
+      totalRubles += item.price * item.quantity;
+    }
+
+    setState(() {
+      // Округляем до 2 знаков после запятой, чтобы не было 199.9900000004
+      _amountCtrl.text = totalRubles.toStringAsFixed(2);
+
+      if (_amountCtrl.text.endsWith(".00")) {
+        _amountCtrl.text = _amountCtrl.text.substring(
+          0,
+          _amountCtrl.text.length - 3,
         );
-        setState(() {
-          _selectedFromAccountId = mainAccount.id;
-        });
       }
     });
   }
@@ -56,6 +77,19 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   @override
   Widget build(BuildContext context) {
     final themeColor = _getTypeColor();
+    final wallet = context.watch<WalletProvider>();
+    if (_selectedFromAccountId == null && wallet.accounts.isNotEmpty) {
+      final mainAccount = wallet.accounts.firstWhere(
+        (a) => a.isMain,
+        orElse: () => wallet.accounts.first,
+      );
+      // Важно: делаем это в микротаске, чтобы не сломать build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedFromAccountId = mainAccount.id;
+        });
+      });
+    }
 
     return PulsePage(
       title: "Операция",
@@ -197,25 +231,62 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
     if (categoryData.tags.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 36,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: categoryData.tags.length,
         itemBuilder: (context, index) {
           final tag = categoryData.tags[index];
-          // Тут можно добавить логику выделения (isSelected)
-          return Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white10),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              tag,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+          final isActive = _activeTagForBatching == tag;
+
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                // Если нажали на уже активный - выключаем режим
+                if (_activeTagForBatching == tag) {
+                  _activeTagForBatching = null;
+                } else {
+                  // Иначе включаем режим для этого тега
+                  _activeTagForBatching = tag;
+
+                  // Показываем подсказку пользователю
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Нажимайте на товары, чтобы добавить тег '$tag'",
+                      ),
+                      backgroundColor: PulseColors.primary,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? PulseColors.primary.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isActive ? PulseColors.primary : Colors.white10,
+                  width: isActive ? 1.5 : 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                tag,
+                style: TextStyle(
+                  color: isActive ? Colors.white : Colors.white70,
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
             ),
           );
         },
@@ -224,17 +295,60 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   }
 
   // МЕТОД СОХРАНЕНИЯ (ЗАГОТОВКА)
-  void _saveTransaction() {
-    if (_amountCtrl.text.isEmpty || _selectedFromAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Введите сумму и выберите счет")),
-      );
+  void _saveTransaction() async {
+    // 1. Валидация
+    if (_amountCtrl.text.isEmpty) {
+      _showSnack("Введите сумму", isError: true);
+      return;
+    }
+    if (_selectedFromAccountId == null) {
+      _showSnack("Выберите счет списания", isError: true);
       return;
     }
 
-    // Пока просто закрываем, скоро напишем вызов провайдера
-    HapticFeedback.heavyImpact();
-    Navigator.pop(context);
+    HapticFeedback.mediumImpact();
+
+    // Парсим сумму
+    final double amount =
+        double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0.0;
+
+    // 2. Вызываем провайдер
+    final provider = context.read<WalletProvider>();
+
+    await provider.addTransaction(
+      amount: amount,
+      type: _type,
+      accountId: _selectedFromAccountId!,
+      toAccountId: _selectedToAccountId,
+      categoryId: _selectedCategoryId,
+      date: _selectedDate,
+      storeName: _storeCtrl.text.isNotEmpty ? _storeCtrl.text : null,
+      note: _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null,
+
+      // ИСПРАВЛЕНИЕ ЗДЕСЬ:
+      items: _items
+          .map(
+            (i) => TransactionItemDto(
+              name: i.name,
+              // Переводим BigInt копейки назад в double рубли для DTO
+              price: i.price.toDouble() / 100,
+              quantity: i.quantity,
+              categoryId: i.categoryId,
+            ),
+          )
+          .toList(),
+    );
+
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? PulseColors.red : PulseColors.green,
+      ),
+    );
   }
 
   Color _getTypeColor() {
@@ -264,44 +378,282 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   }
 
   Widget _buildItemsSection() {
+    final bool hasItems = _items.isNotEmpty;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // --- ЗАГОЛОВОК СЕКЦИИ ---
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "ПОЗИЦИИ ЧЕКА",
-              style: TextStyle(
-                color: Colors.white54,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                letterSpacing: 1.5,
-              ),
+            Row(
+              children: [
+                const Text(
+                  "ПОЗИЦИИ ЧЕКА",
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                if (hasItems) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: PulseColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      "${_items.length}",
+                      style: const TextStyle(
+                        color: PulseColors.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
+            // Кнопка добавить
             GestureDetector(
-              onTap: () {},
-              child: const Icon(Icons.add_circle, color: PulseColors.primary),
+              onTap: _addItem,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: PulseColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add,
+                  color: PulseColors.primary,
+                  size: 20,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        // Пустой список
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.02),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+
+        const SizedBox(height: 12),
+
+        // --- КОНТЕНТ (СПИСОК ИЛИ ЗАГЛУШКА) ---
+        if (!hasItems)
+          // СОСТОЯНИЕ: ПУСТО
+          _buildEmptyPlaceholder()
+        else
+          // СОСТОЯНИЕ: СПИСОК ТОВАРОВ
+          Column(
+            children: _items.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return _buildItemCard(index, item);
+            }).toList(),
           ),
-          child: const Center(
-            child: Text(
-              "Список пуст. Добавьте товары вручную или сканируйте чек.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white24, fontSize: 12),
-            ),
-          ),
-        ),
       ],
     );
+  }
+
+  // Виджет пустой секции
+  Widget _buildEmptyPlaceholder() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.receipt_long_outlined, color: Colors.white10, size: 32),
+          SizedBox(height: 12),
+          Text(
+            "Список пуст. Добавьте товары вручную\nили сканируйте чек через QR.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white24, fontSize: 12, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Виджет карточки товара в списке
+  Widget _buildItemCard(int index, TransactionItemDto item) {
+    // 1. Конвертируем цену из копеек (BigInt) в рубли (double)
+    final double priceRub = item.price;
+
+    // 2. Считаем общую стоимость позиции (Цена x Кол-во)
+    final double totalRub = priceRub * item.quantity;
+
+    // 3. Форматируем для отображения (без лишних .0)
+    final String priceStr = priceRub.toStringAsFixed(priceRub % 1 == 0 ? 0 : 2);
+    final String qtyStr = item.quantity.toStringAsFixed(
+      item.quantity % 1 == 0 ? 0 : 2,
+    );
+    final String totalStr = totalRub.toStringAsFixed(totalRub % 1 == 0 ? 0 : 2);
+
+    // Проверяем, есть ли у товара активный тег (для подсветки)
+    final bool hasActiveTag =
+        _activeTagForBatching != null &&
+        item.tags.contains(_activeTagForBatching);
+
+    return GestureDetector(
+      // ГЛАВНАЯ ЛОГИКА НАЖАТИЯ
+      onTap: () {
+        if (_activeTagForBatching != null) {
+          // РЕЖИМ ТЕГИРОВАНИЯ
+          HapticFeedback.lightImpact();
+          setState(() {
+            if (item.tags.contains(_activeTagForBatching)) {
+              item.tags.remove(_activeTagForBatching);
+            } else {
+              item.tags.add(_activeTagForBatching!);
+            }
+          });
+        } else {
+          // ОБЫЧНЫЙ РЕЖИМ (РЕДАКТИРОВАНИЕ)
+          _editItem(index);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          // Подсвечиваем карточку, если мы в режиме тегирования и тег уже стоит
+          color: hasActiveTag
+              ? PulseColors.primary.withValues(alpha: 0.1)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: hasActiveTag
+                ? PulseColors.primary.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.05),
+          ),
+        ),
+        child: Column(
+          // Завернули Row в Column, чтобы добавить теги снизу
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Инфо о товаре
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "$qtyStr шт. x $priceStr ₽",
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Цена и Удаление
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "$totalStr ₽",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () {
+                        // Удаление работает всегда, даже в режиме тегов
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _items.removeAt(index);
+                          _recalculateTotal();
+                        });
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: PulseColors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            // ОТОБРАЖЕНИЕ ТЕГОВ ТОВАРА
+            if (item.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: item.tags
+                    .map(
+                      (t) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "#$t",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: t == _activeTagForBatching
+                                ? PulseColors.primary
+                                : Colors.white54,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editItem(int index) async {
+    final item = _items[index];
+
+    // Передаем DTO в диалог и ждем DTO обратно
+    final editedItem = await showDialog<TransactionItemDto>(
+      context: context,
+      builder: (_) => AddItemDialog(item: item),
+    );
+
+    if (editedItem != null) {
+      setState(() {
+        _items[index] = editedItem; // Заменяем
+        _recalculateTotal();
+      });
+    }
   }
 }

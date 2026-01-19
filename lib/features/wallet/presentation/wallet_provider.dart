@@ -198,16 +198,18 @@ class WalletProvider extends ChangeNotifier {
 }
 
 class TransactionItemDto {
-  final String name;
-  final double price;
-  final double quantity;
-  final String? categoryId;
+  String name;
+  double price;
+  double quantity;
+  String? categoryId;
+  List<String> tags;
 
   TransactionItemDto({
     required this.name,
     required this.price,
     this.quantity = 1.0,
     this.categoryId,
+    this.tags = const [],
   });
 }
 
