@@ -29,11 +29,13 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   String? _activeTagForBatching;
 
   // Список товаров в чеке
-  List<TransactionItemDto> _items = []; // <--- ВОТ ЭТОГО НЕ ХВАТАЛО
+  List<TransactionItemDto> _items = [];
 
   final _amountCtrl = TextEditingController();
   final _storeCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+
+  final _recipientCtrl = TextEditingController();
 
   // --- ДОБАВИТЬ МЕТОД ДОБАВЛЕНИЯ ТОВАРА ---
   void _addItem() async {
@@ -148,7 +150,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
             onToChanged: (id) => setState(() => _selectedToAccountId = id),
           ),
 
-          // Категорию пока оставим как есть, её сделаем следующим шагом
+          // Категория
           if (_type != 'transfer') ...[
             const SizedBox(height: 10),
             CategoryPickerSection(
@@ -162,7 +164,19 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
           // ТЕГИ (Показываем только если категория выбрана и не перевод)
           if (_type != 'transfer' && _selectedCategoryId != null) ...[
             const SizedBox(height: 12),
-            _buildTagsList(context), // <--- Реализуем метод ниже
+            _buildTagsList(context),
+          ],
+
+          const SizedBox(height: 20),
+
+          // ДЛЯ ПЕРЕВОДА ЛЮДЯМ
+          if (_type == 'transfer_person') ...[
+            const SizedBox(height: 12),
+            EditorInput(
+              hint: "Кому (Имя или контакт)",
+              icon: Icons.person_outline,
+              controller: _recipientCtrl,
+            ),
           ],
 
           const SizedBox(height: 20),
@@ -306,6 +320,18 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
       return;
     }
 
+    String? finalStoreName;
+
+    if (_type == 'transfer_person') {
+      // Если перевод человеку - берем из поля "Кому"
+      finalStoreName = _recipientCtrl.text.isNotEmpty
+          ? _recipientCtrl.text
+          : null;
+    } else {
+      // Иначе берем из поля "Магазин"
+      finalStoreName = _storeCtrl.text.isNotEmpty ? _storeCtrl.text : null;
+    }
+
     HapticFeedback.mediumImpact();
 
     // Парсим сумму
@@ -322,7 +348,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
       toAccountId: _selectedToAccountId,
       categoryId: _selectedCategoryId,
       date: _selectedDate,
-      storeName: _storeCtrl.text.isNotEmpty ? _storeCtrl.text : null,
+      storeName: finalStoreName,
       note: _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null,
 
       // ИСПРАВЛЕНИЕ ЗДЕСЬ:

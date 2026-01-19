@@ -110,10 +110,9 @@ class WalletProvider extends ChangeNotifier {
   }) async {
     final transId = const Uuid().v4();
     final dateFinal = date ?? DateTime.now();
-
-    // Конвертируем рубли в копейки
     final amountCents = BigInt.from((amount * 100).round());
 
+    // 1. Создаем транзакцию
     final transaction = TransactionsCompanion.insert(
       id: transId,
       type: type,
@@ -126,6 +125,7 @@ class WalletProvider extends ChangeNotifier {
       shopName: drift.Value(storeName),
     );
 
+    // 2. Создаем позиции
     final itemCompanions = items.map((i) {
       return TransactionItemsCompanion.insert(
         id: const Uuid().v4(),
@@ -137,6 +137,36 @@ class WalletProvider extends ChangeNotifier {
       );
     }).toList();
 
+    // 3. ОБНОВЛЯЕМ БАЛАНСЫ СЧЕТОВ
+    // Находим исходный счет
+    final fromAccIndex = accounts.indexWhere((a) => a.id == accountId);
+    if (fromAccIndex != -1) {
+      final fromAcc = accounts[fromAccIndex];
+
+      if (type == 'expense' ||
+          type == 'transfer' ||
+          type == 'transfer_person') {
+        // Списание
+        final newBalance = fromAcc.balance - amountCents;
+        await _repo.updateAccount(fromAcc.copyWith(balance: newBalance));
+      } else if (type == 'income' || type == 'transfer_person_incoming') {
+        // Пополнение
+        final newBalance = fromAcc.balance + amountCents;
+        await _repo.updateAccount(fromAcc.copyWith(balance: newBalance));
+      }
+    }
+
+    // Если это перевод СЕБЕ -> пополняем целевой счет
+    if (type == 'transfer' && toAccountId != null) {
+      final toAccIndex = accounts.indexWhere((a) => a.id == toAccountId);
+      if (toAccIndex != -1) {
+        final toAcc = accounts[toAccIndex];
+        final newBalance = toAcc.balance + amountCents;
+        await _repo.updateAccount(toAcc.copyWith(balance: newBalance));
+      }
+    }
+
+    // 4. Сохраняем саму транзакцию в историю
     await _repo.createTransaction(
       transaction: transaction,
       items: itemCompanions,
