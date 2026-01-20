@@ -8,6 +8,7 @@ import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_large_number_input.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../../data/tables/wallet_tables.dart';
 import '../../presentation/wallet_provider.dart';
 import 'dialog/add_item_dialog.dart';
 import 'editor_components.dart';
@@ -15,7 +16,10 @@ import '../../../../core/utils/number_formatters.dart';
 import 'utils/transaction_types.dart';
 
 class TransactionEditorPage extends StatefulWidget {
-  const TransactionEditorPage({super.key});
+  // Вместо просто Transaction принимаем DTO
+  final TransactionWithItems? transactionWithItems;
+
+  const TransactionEditorPage({super.key, this.transactionWithItems});
 
   @override
   State<TransactionEditorPage> createState() => _TransactionEditorPageState();
@@ -41,18 +45,70 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
   @override
   void initState() {
     super.initState();
-    // Инициализация данных (вынесена из build)
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initDefaultAccount());
+
+    // Если это редактирование - заполняем поля
+    if (widget.transactionWithItems != null) {
+      final data = widget.transactionWithItems!;
+      final t = data.transaction;
+
+      // 1. Конвертируем тип из строки БД в Enum
+      _type = TransactionType.values.firstWhere(
+        (e) => e.dbValue == t.type,
+        orElse: () => TransactionType.expense,
+      );
+
+      _selectedDate = t.date;
+
+      // 2. Сумма (копейки -> рубли)
+      _amountCtrl.text = (t.amount.toDouble() / 100)
+          .toCurrencyString(); // Используем наш extension
+
+      // 3. ID связей
+      _fromAccountId = t.sourceAccountId;
+      _toAccountId = t.targetAccountId;
+      _categoryId = t.categoryId;
+
+      // 4. Текстовые поля
+      if (_type == TransactionType.transferPerson) {
+        _recipientCtrl.text = t.shopName ?? "";
+      } else {
+        _storeCtrl.text = t.shopName ?? "";
+      }
+      _noteCtrl.text = t.note ?? "";
+
+      // 5. Товары (самое важное!)
+      // Конвертируем TransactionItem (Drift) -> TransactionItemDto (UI)
+      // В DTO мы храним цену в рублях!
+      _items.addAll(
+        data.items.map(
+          (i) => TransactionItemDto(
+            name: i.name,
+            price: i.price.toDouble() / 100, // Конвертация
+            quantity: i.quantity,
+            categoryId: i.categoryId,
+            tags: [], // Теги пока пустые, так как мы их не храним в items
+          ),
+        ),
+      );
+    } else {
+      // Если это создание новой - запускаем автовыбор счета
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _initDefaultAccount(),
+      );
+    }
   }
 
   void _initDefaultAccount() {
     final wallet = context.read<WalletProvider>();
+    // Используем _fromAccountId
     if (wallet.accounts.isNotEmpty && _fromAccountId == null) {
       final main = wallet.accounts.firstWhere(
         (a) => a.isMain,
         orElse: () => wallet.accounts.first,
       );
-      setState(() => _fromAccountId = main.id);
+      if (mounted) {
+        setState(() => _fromAccountId = main.id); // Используем _fromAccountId
+      }
     }
   }
 
@@ -118,6 +174,7 @@ class _TransactionEditorPageState extends State<TransactionEditorPage> {
 
     // 3. Сохранение
     await context.read<WalletProvider>().addTransaction(
+      id: widget.transactionWithItems?.transaction.id,
       amount: amount,
       type: _type.dbValue,
       accountId: _fromAccountId!,

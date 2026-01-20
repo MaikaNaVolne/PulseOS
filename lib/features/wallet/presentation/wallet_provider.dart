@@ -107,6 +107,7 @@ class WalletProvider extends ChangeNotifier {
 
   // МЕТОД СОЗДАНИЯ ТРАНЗАКЦИИ
   Future<void> addTransaction({
+    String? id,
     required double amount,
     required String type, // 'expense', 'income', 'transfer'
     required String accountId,
@@ -117,7 +118,7 @@ class WalletProvider extends ChangeNotifier {
     String? storeName,
     List<TransactionItemDto> items = const [], // DTO для позиций
   }) async {
-    final transId = const Uuid().v4();
+    final transId = id ?? const Uuid().v4();
     final dateFinal = date ?? DateTime.now();
     final amountCents = BigInt.from((amount * 100).round());
 

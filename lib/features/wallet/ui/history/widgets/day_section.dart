@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../../../core/theme/pulse_theme.dart';
 import '../../../data/tables/wallet_tables.dart';
 import '../../../presentation/wallet_provider.dart';
+import '../../transactions/transaction_editor_page.dart';
 import 'transaction_tile.dart';
 
 class DaySection extends StatelessWidget {
@@ -83,10 +84,21 @@ class DaySection extends StatelessWidget {
 
         // Список транзакций
         ...transactions.map((item) {
-          return TransactionTile(data: item, onTap: () {});
+          return TransactionTile(
+            data: item, // item это TransactionWithItems
+            onTap: () {
+              // ОТКРЫВАЕМ РЕДАКТОР
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TransactionEditorPage(
+                    transactionWithItems: item, // Передаем данные
+                  ),
+                ),
+              );
+            },
+          );
         }),
-
-        const SizedBox(height: 8),
       ],
     );
   }
