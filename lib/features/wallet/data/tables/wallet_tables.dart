@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 
+import '../../../../core/database/app_database.dart';
+
 // --- 1. ВАЛЮТЫ ---
 class Currencies extends Table {
   TextColumn get code => text().withLength(min: 3, max: 3)();
@@ -99,4 +101,18 @@ class TransactionItems extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+class TransactionWithItems {
+  final Transaction transaction;
+  final List<TransactionItem> items;
+  final Category? category;
+  final Account? account;
+
+  TransactionWithItems({
+    required this.transaction,
+    this.items = const [],
+    this.category,
+    this.account,
+  });
 }

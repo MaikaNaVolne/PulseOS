@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' as drift;
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
+import '../data/tables/wallet_tables.dart';
 import '../data/wallet_repository.dart';
 
 class WalletProvider extends ChangeNotifier {
@@ -26,6 +27,8 @@ class WalletProvider extends ChangeNotifier {
   // Кэш категорий для выбора
   List<CategoryWithTags> categories = [];
 
+  List<TransactionWithItems> transactions = [];
+
   StreamSubscription? _categoriesSubscription;
 
   void _init() {
@@ -34,6 +37,12 @@ class WalletProvider extends ChangeNotifier {
       accounts = data;
       _calculateTotal();
       isLoading = false;
+      notifyListeners();
+    });
+
+    // Подписка на транзакции
+    _repo.watchTransactionsWithItems().listen((data) {
+      transactions = data;
       notifyListeners();
     });
 
