@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/features/wallet/presentation/wallet_provider.dart';
 import 'package:pulseos/features/wallet/ui/dialogs/account_dialog.dart';
 import 'package:pulseos/features/wallet/ui/widgets/wallet_tools_grid.dart';
+import '../../core/ui_kit/pulse_buttons.dart';
 import '../../core/ui_kit/pulse_page.dart';
 import '../../core/theme/pulse_theme.dart';
 import '../../core/utils/app_routes.dart';
@@ -19,6 +21,17 @@ class WalletPage extends StatelessWidget {
       title: "Кошелек",
       subtitle: "ФИНАНСЫ",
       accentColor: PulseColors.primary,
+
+      // Кнопка настроек справа
+      actions: [
+        GlassCircleButton(
+          icon: Icons.history,
+          onTap: () {
+            // Обработка нажатия на кнопку настроек
+            Navigator.pushNamed(context, AppRoutes.history);
+          },
+        ),
+      ],
 
       // Список счетов
       body: Column(
