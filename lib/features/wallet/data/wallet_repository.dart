@@ -140,19 +140,18 @@ class WalletRepository {
       ),
     ]);
 
-    // ДИНАМИЧЕСКИЕ ФИЛЬТРЫ SQL
     if (filter != null) {
       // 1. По типу
       if (filter.type != null) {
         query.where(_db.transactions.type.equals(filter.type!.dbValue));
       }
-      // 2. По счету
+      // 2. По конкретному счету
       if (filter.accountId != null) {
         query.where(_db.transactions.sourceAccountId.equals(filter.accountId!));
       }
-      // 3. По категории
-      if (filter.categoryId != null) {
-        query.where(_db.transactions.categoryId.equals(filter.categoryId!));
+      // 3. По списку категорий (IN clause)
+      if (filter.categoryIds.isNotEmpty) {
+        query.where(_db.transactions.categoryId.isIn(filter.categoryIds));
       }
       // 4. По датам
       if (filter.startDate != null) {
@@ -165,12 +164,13 @@ class WalletRepository {
           _db.transactions.date.isSmallerOrEqualValue(filter.endDate!),
         );
       }
-      // 5. Поиск (Магазин или Заметка)
-      if (filter.searchQuery != null && filter.searchQuery!.isNotEmpty) {
-        final q = '%${filter.searchQuery}%';
-        query.where(
-          _db.transactions.shopName.like(q) | _db.transactions.note.like(q),
-        );
+      // 5. Поиск по тегам (в таблице позиций чека)
+      if (filter.tagQuery != null) {
+        final subquery = _db.selectOnly(_db.transactionItems)
+          ..addColumns([_db.transactionItems.transactionId])
+          ..where(_db.transactionItems.name.like('%${filter.tagQuery}%'));
+
+        query.where(_db.transactions.id.isInQuery(subquery));
       }
     }
 
