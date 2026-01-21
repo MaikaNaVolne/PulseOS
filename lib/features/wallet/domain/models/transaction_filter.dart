@@ -5,46 +5,49 @@ class TransactionFilter {
   final DateTime? endDate;
   final TransactionType? type;
   final String? accountId;
-  final String? categoryId;
-  final String? searchQuery;
+  final List<String> categoryIds;
+  final String? tagQuery;
 
   const TransactionFilter({
     this.startDate,
     this.endDate,
     this.type,
     this.accountId,
-    this.categoryId,
-    this.searchQuery,
+    this.categoryIds = const [],
+    this.tagQuery,
   });
 
-  // Проверка: активен ли хоть один фильтр
   bool get isActive =>
       startDate != null ||
       type != null ||
       accountId != null ||
-      categoryId != null ||
-      (searchQuery?.isNotEmpty ?? false);
+      categoryIds.isNotEmpty ||
+      tagQuery != null;
 
-  // Метод для удобного копирования состояния
   TransactionFilter copyWith({
     DateTime? startDate,
     DateTime? endDate,
     TransactionType? type,
     String? accountId,
-    String? categoryId,
-    String? searchQuery,
+    List<String>? categoryIds,
+    String? tagQuery,
     bool clearDates = false,
   }) {
     return TransactionFilter(
+      // Если clearDates = true, зануляем даты, иначе берем новые или старые
       startDate: clearDates ? null : (startDate ?? this.startDate),
       endDate: clearDates ? null : (endDate ?? this.endDate),
-      type: type ?? this.type,
-      accountId: accountId ?? this.accountId,
-      categoryId: categoryId ?? this.categoryId,
-      searchQuery: searchQuery ?? this.searchQuery,
+
+      // Логика переключения
+      type: type == this.type ? null : (type ?? this.type),
+      accountId: accountId == this.accountId
+          ? null
+          : (accountId ?? this.accountId),
+
+      categoryIds: categoryIds ?? this.categoryIds,
+      tagQuery: tagQuery ?? this.tagQuery,
     );
   }
 
-  // Начальное состояние
   factory TransactionFilter.empty() => const TransactionFilter();
 }
