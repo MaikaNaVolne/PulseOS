@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
+import '../domain/models/transaction_filter.dart';
 import 'tables/wallet_tables.dart';
 
 class WalletRepository {
@@ -121,10 +122,9 @@ class WalletRepository {
   }
 
   // Получить поток транзакций с товарами
-  Stream<List<TransactionWithItems>> watchTransactionsWithItems() {
-    // БЫЛО: final query = select(_db.transactions).join([
-
-    // СТАЛО: (добавляем _db.)
+  Stream<List<TransactionWithItems>> watchTransactionsWithItems({
+    TransactionFilter? filter,
+  }) {
     final query = _db.select(_db.transactions).join([
       leftOuterJoin(
         _db.transactionItems,
@@ -139,6 +139,40 @@ class WalletRepository {
         _db.accounts.id.equalsExp(_db.transactions.sourceAccountId),
       ),
     ]);
+
+    // ДИНАМИЧЕСКИЕ ФИЛЬТРЫ SQL
+    if (filter != null) {
+      // 1. По типу
+      if (filter.type != null) {
+        query.where(_db.transactions.type.equals(filter.type!.dbValue));
+      }
+      // 2. По счету
+      if (filter.accountId != null) {
+        query.where(_db.transactions.sourceAccountId.equals(filter.accountId!));
+      }
+      // 3. По категории
+      if (filter.categoryId != null) {
+        query.where(_db.transactions.categoryId.equals(filter.categoryId!));
+      }
+      // 4. По датам
+      if (filter.startDate != null) {
+        query.where(
+          _db.transactions.date.isBiggerOrEqualValue(filter.startDate!),
+        );
+      }
+      if (filter.endDate != null) {
+        query.where(
+          _db.transactions.date.isSmallerOrEqualValue(filter.endDate!),
+        );
+      }
+      // 5. Поиск (Магазин или Заметка)
+      if (filter.searchQuery != null && filter.searchQuery!.isNotEmpty) {
+        final q = '%${filter.searchQuery}%';
+        query.where(
+          _db.transactions.shopName.like(q) | _db.transactions.note.like(q),
+        );
+      }
+    }
 
     return query.watch().map((rows) {
       final grouped = <String, TransactionWithItems>{};
