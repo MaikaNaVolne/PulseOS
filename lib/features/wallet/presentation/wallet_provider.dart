@@ -7,6 +7,7 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
 import '../data/tables/wallet_tables.dart';
 import '../data/wallet_repository.dart';
+import '../domain/models/transaction_filter.dart';
 
 class WalletProvider extends ChangeNotifier {
   late final WalletRepository _repo;
@@ -93,6 +94,32 @@ class WalletProvider extends ChangeNotifier {
     if (tags.isNotEmpty) {
       await _repo.updateTags(catId, tags);
     }
+  }
+
+  // 1. Текущий фильтр
+  TransactionFilter _currentFilter = TransactionFilter.empty();
+  TransactionFilter get currentFilter => _currentFilter;
+
+  // 2. Метод обновления фильтра
+  void updateFilter(TransactionFilter newFilter) {
+    _currentFilter = newFilter;
+
+    // Переподписываемся на стрим транзакций с новым фильтром
+    _categoriesSubscription?.cancel(); // Если используешь ту же переменную
+    _initTransactionsStream(); // Выносим подписку в отдельный метод
+
+    notifyListeners();
+  }
+
+  void _initTransactionsStream() {
+    _categoriesSubscription = _repo
+        .watchTransactionsWithItems(
+          filter: _currentFilter,
+        ) // Передаем фильтр в репо
+        .listen((data) {
+          transactions = data;
+          notifyListeners();
+        });
   }
 
   // Метод для загрузки тегов при открытии диалога
