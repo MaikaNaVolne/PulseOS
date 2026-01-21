@@ -6,6 +6,7 @@ import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../presentation/wallet_provider.dart';
 import 'widgets/day_section.dart';
+import 'widgets/filter_sheet.dart';
 
 class TransactionHistoryPage extends StatelessWidget {
   const TransactionHistoryPage({super.key});
@@ -33,13 +34,16 @@ class TransactionHistoryPage extends StatelessWidget {
 
       actions: [
         GlassCircleButton(
-          icon: Icons.search,
+          icon: Icons.tune,
           onTap: () {
-            // TODO: Поиск
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const FilterSheet(),
+            );
           },
         ),
       ],
-
       body: sortedDates.isEmpty
           ? const Center(
               child: Padding(
