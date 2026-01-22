@@ -48,7 +48,7 @@ dependencies:
   collection: ^1.18.0
 
   # Хранение данных
-  shared_preferences: ^2.2.3
+  shared_preferences: ^2.5.4
   path_provider: ^2.1.5
 
   # Графики
