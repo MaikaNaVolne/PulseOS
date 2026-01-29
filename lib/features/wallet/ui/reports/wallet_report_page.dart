@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/pulse_theme.dart';
-import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../presentation/wallet_provider.dart';
+import 'widgets/category_stat_list.dart';
+import 'widgets/wallet_pie_chart.dart';
 
 class WalletReportPage extends StatelessWidget {
   const WalletReportPage({super.key});
@@ -57,11 +58,26 @@ class WalletReportPage extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // 3. ЗАГЛОВКА ДЛЯ ДИАГРАММЫ (Появится в следующей задаче)
+          // 3. ПЕРЕКЛЮЧАТЕЛЬ ТИПА (Расход/Доход)
+          _buildTypeSelector(provider),
+
+          const SizedBox(height: 24),
+
+          // 4. ДИАГРАММА
+          WalletPieChart(
+            stats: provider.reportCategories,
+            totalAmount: provider.reportType == 'expense'
+                ? (summary['expense'] ?? 0)
+                : (summary['income'] ?? 0),
+          ),
+
+          const SizedBox(height: 32),
+
+          // 5. СПИСОК КАТЕГОРИЙ
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              "РАСПРЕДЕЛЕНИЕ",
+              "ДЕТАЛИЗАЦИЯ",
               style: TextStyle(
                 color: Colors.white38,
                 fontSize: 10,
@@ -70,8 +86,9 @@ class WalletReportPage extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          CategoryStatList(stats: provider.reportCategories),
 
-          const SizedBox(height: 100), // Заглушка под будущий график
           const Center(
             child: Text(
               "График будет здесь...",
@@ -147,6 +164,58 @@ class WalletReportPage extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildTypeSelector(WalletProvider provider) {
+  return Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Row(
+      children: [
+        _typeBtn(provider, "РАСХОДЫ", 'expense', PulseColors.red),
+        _typeBtn(provider, "ДОХОДЫ", 'income', PulseColors.green),
+      ],
+    ),
+  );
+}
+
+Widget _typeBtn(
+  WalletProvider provider,
+  String label,
+  String type,
+  Color color,
+) {
+  final isSelected = provider.reportType == type;
+  return Expanded(
+    child: GestureDetector(
+      onTap: () => provider.setReportType(type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? color.withValues(alpha: 0.5)
+                : Colors.transparent,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white24,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _SummaryCard extends StatelessWidget {

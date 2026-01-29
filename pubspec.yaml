@@ -52,7 +52,7 @@ dependencies:
   path_provider: ^2.1.5
 
   # Графики
-  fl_chart: ^0.68.0 # <-- Обновлено
+  fl_chart: ^1.1.1 # <-- Обновлено
 
   # Управление состоянием
   provider: ^6.1.2
