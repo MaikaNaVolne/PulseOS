@@ -35,6 +35,7 @@ class WalletToolsGrid extends StatelessWidget {
         'title': 'Отчеты',
         'icon': Icons.pie_chart_outline,
         'color': PulseColors.pink,
+        'route': AppRoutes.reports,
       },
       {
         'title': 'Автоматика',

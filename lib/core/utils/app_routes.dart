@@ -5,4 +5,5 @@ class AppRoutes {
   static const String transaction = '/wallet/transaction';
   static const String category = '/wallet/category';
   static const String history = '/wallet/history';
+  static const String reports = '/wallet/reports';
 }
