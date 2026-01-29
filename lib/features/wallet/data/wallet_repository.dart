@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
+import '../domain/models/category_stat_dto.dart';
 import '../domain/models/transaction_filter.dart';
 import 'tables/wallet_tables.dart';
 
@@ -161,6 +162,85 @@ class WalletRepository {
       }
       return grouped.values.toList()
         ..sort((a, b) => b.transaction.date.compareTo(a.transaction.date));
+    });
+  }
+
+  // АНАЛИТИКА И ОТЧЕТЫ
+
+  /// 1. Получить общую сводку (Доход / Расход) за период
+  Future<Map<String, double>> getPeriodSummary({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    // Выбираем только расходы и доходы (без переводов)
+    final query = _db.select(_db.transactions)
+      ..where((t) => t.date.isBiggerOrEqualValue(start))
+      ..where((t) => t.date.isSmallerOrEqualValue(end))
+      ..where((t) => t.type.isIn(['income', 'expense']));
+
+    final transactions = await query.get();
+
+    double income = 0;
+    double expense = 0;
+
+    for (var t in transactions) {
+      final amount = t.amount.toDouble() / 100; // Конвертация копеек
+      if (t.type == 'income') {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    }
+
+    return {'income': income, 'expense': expense};
+  }
+
+  /// 2. Получить список трат, сгруппированный по категориям (для Графика)
+  Stream<List<CategoryStatDto>> watchCategoryStats({
+    required DateTime start,
+    required DateTime end,
+    required String type, // 'expense' или 'income'
+  }) {
+    // Нам нужно: Сумма amount, Категория
+    final amountSum = _db.transactions.amount.sum();
+    final countId = _db.transactions.id.count();
+
+    final query = _db.select(_db.transactions).join([
+      leftOuterJoin(
+        _db.categories,
+        _db.categories.id.equalsExp(_db.transactions.categoryId),
+      ),
+    ]);
+
+    // Фильтры
+    query.where(_db.transactions.date.isBiggerOrEqualValue(start));
+    query.where(_db.transactions.date.isSmallerOrEqualValue(end));
+    query.where(_db.transactions.type.equals(type));
+
+    // Группировка по ID категории
+    query.groupBy([_db.transactions.categoryId]);
+
+    // Сортировка по сумме (от больших к меньшим)
+    query.orderBy([
+      OrderingTerm(expression: amountSum, mode: OrderingMode.desc),
+    ]);
+
+    // Добавляем вычисляемые колонки
+    query.addColumns([amountSum, countId]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final category = row.readTableOrNull(_db.categories);
+        final totalCents =
+            row.read(amountSum) ?? BigInt.zero; // Сумма может быть null
+        final count = row.read(countId) ?? 0;
+
+        return CategoryStatDto(
+          category: category,
+          totalAmount: totalCents.toDouble() / 100, // В рубли
+          transactionCount: count,
+        );
+      }).toList();
     });
   }
 }

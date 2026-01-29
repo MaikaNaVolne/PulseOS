@@ -7,6 +7,7 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
 import '../data/tables/wallet_tables.dart';
 import '../data/wallet_repository.dart';
+import '../domain/models/category_stat_dto.dart';
 import '../domain/models/transaction_filter.dart';
 
 class WalletProvider extends ChangeNotifier {
@@ -237,6 +238,80 @@ class WalletProvider extends ChangeNotifier {
     _categoriesSubscription?.cancel();
     _transactionsSubscription?.cancel();
     super.dispose();
+  }
+
+  // ЛОГИКА ОТЧЕТОВ
+
+  // Текущий выбранный период
+  DateTime _reportStartDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
+  DateTime _reportEndDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month + 1,
+    0,
+    23,
+    59,
+    59,
+  );
+  String _reportType = 'expense'; // 'expense' или 'income'
+
+  // Геттеры для UI
+  DateTime get reportStartDate => _reportStartDate;
+  DateTime get reportEndDate => _reportEndDate;
+  String get reportType => _reportType;
+
+  // Данные для UI (кэш)
+  Map<String, double> periodSummary = {'income': 0, 'expense': 0};
+  List<CategoryStatDto> reportCategories = [];
+
+  StreamSubscription? _reportSubscription;
+
+  /// Установить период отчета
+  void setReportPeriod(DateTime start, DateTime end) {
+    _reportStartDate = start;
+    _reportEndDate = end;
+    _loadReportData();
+  }
+
+  /// Переключить тип (Доход/Расход)
+  void setReportType(String type) {
+    _reportType = type;
+    _loadReportData();
+  }
+
+  /// Загрузка данных (вызывается при смене даты или типа)
+  Future<void> _loadReportData() async {
+    // 1. Загружаем общие цифры (Доход vs Расход) - это Future
+    periodSummary = await _repo.getPeriodSummary(
+      start: _reportStartDate,
+      end: _reportEndDate,
+    );
+
+    // 2. Подписываемся на детализацию по категориям - это Stream
+    await _reportSubscription?.cancel();
+
+    _reportSubscription = _repo
+        .watchCategoryStats(
+          start: _reportStartDate,
+          end: _reportEndDate,
+          type: _reportType,
+        )
+        .listen((data) {
+          // Рассчитываем проценты
+          final total = data.fold(0.0, (sum, item) => sum + item.totalAmount);
+
+          reportCategories = data.map((item) {
+            final percent = total == 0 ? 0.0 : (item.totalAmount / total);
+            return item.copyWith(percentage: percent);
+          }).toList();
+
+          notifyListeners();
+        });
+
+    notifyListeners();
   }
 }
 
