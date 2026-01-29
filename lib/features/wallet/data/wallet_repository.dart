@@ -10,7 +10,6 @@ class WalletRepository {
 
   WalletRepository(this._db);
 
-  // Стримим список всех счетов (авто-обновление UI)
   Stream<List<Account>> watchAllAccounts() {
     return (_db.select(_db.accounts)..orderBy([
           (t) => OrderingTerm(expression: t.isMain, mode: OrderingMode.desc),
@@ -19,39 +18,30 @@ class WalletRepository {
         .watch();
   }
 
-  // Создание
   Future<void> createAccount(AccountsCompanion account) {
     return _db.transaction(() async {
-      // Если новый счет должен быть основным -> сбрасываем флаг у всех остальных
       if (account.isMain.present && account.isMain.value == true) {
         await (_db.update(_db.accounts)..where((t) => t.isMain.equals(true)))
             .write(const AccountsCompanion(isMain: Value(false)));
       }
-      // Вставляем новый
       await _db.into(_db.accounts).insert(account);
     });
   }
 
-  // Обновить счет (с логикой единственного Main)
   Future<void> updateAccount(Account account) {
     return _db.transaction(() async {
-      // Если мы делаем этот счет основным -> сбрасываем остальных
       if (account.isMain) {
         await (_db.update(_db.accounts)
               ..where((t) => t.id.isNotValue(account.id)))
             .write(const AccountsCompanion(isMain: Value(false)));
       }
-      // Обновляем текущий
       await _db.update(_db.accounts).replace(account);
     });
   }
 
-  // Удаление
   Future<int> deleteAccount(String id) {
     return (_db.delete(_db.accounts)..where((t) => t.id.equals(id))).go();
   }
-
-  // --- КАТЕГОРИИ ---
 
   Stream<List<Category>> watchAllCategories() {
     return (_db.select(
@@ -59,47 +49,44 @@ class WalletRepository {
     )..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
   }
 
-  // --- ТРАНЗАКЦИИ ---
-
+  // ОБНОВЛЕННЫЙ МЕТОД (Upsert транзакции)
   Future<void> createTransaction({
     required TransactionsCompanion transaction,
     required List<TransactionItemsCompanion> items,
   }) async {
     return _db.transaction(() async {
-      // 1. Сохраняем саму транзакцию
-      await _db.into(_db.transactions).insert(transaction);
+      // Очищаем старые позиции, если мы редактируем существующую транзакцию
+      await (_db.delete(
+        _db.transactionItems,
+      )..where((t) => t.transactionId.equals(transaction.id.value))).go();
 
-      // 2. Сохраняем позиции чека (если есть)
+      // Обновляем или вставляем саму транзакцию
+      await _db.into(_db.transactions).insertOnConflictUpdate(transaction);
+
+      // Вставляем позиции заново
       for (var item in items) {
         await _db.into(_db.transactionItems).insert(item);
       }
     });
   }
 
-  // Создать категорию
   Future<void> createCategory(CategoriesCompanion category) {
     return _db.into(_db.categories).insert(category);
   }
 
-  // Обновить категорию
   Future<void> updateCategory(Category category) {
     return _db.update(_db.categories).replace(category);
   }
 
-  // Удалить категорию (теги удалятся каскадно, если настроено в БД)
   Future<void> deleteCategory(String id) {
     return (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();
   }
 
-  // --- ТЕГИ ---
-
-  // Сохранить список тегов для категории (удаляет старые, пишет новые)
   Future<void> updateTags(String categoryId, List<String> tagNames) {
     return _db.transaction(() async {
       await (_db.delete(
         _db.tags,
       )..where((t) => t.categoryId.equals(categoryId))).go();
-
       for (var name in tagNames) {
         await _db
             .into(_db.tags)
@@ -114,14 +101,12 @@ class WalletRepository {
     });
   }
 
-  // Получить теги для категории (Async Future для диалога)
   Future<List<Tag>> getTagsForCategory(String categoryId) {
     return (_db.select(
       _db.tags,
     )..where((t) => t.categoryId.equals(categoryId))).get();
   }
 
-  // Получить поток транзакций с товарами
   Stream<List<TransactionWithItems>> watchTransactionsWithItems({
     TransactionFilter? filter,
   }) {
@@ -141,48 +126,29 @@ class WalletRepository {
     ]);
 
     if (filter != null) {
-      // 1. По типу
-      if (filter.type != null) {
+      if (filter.type != null)
         query.where(_db.transactions.type.equals(filter.type!.dbValue));
-      }
-      // 2. По конкретному счету
-      if (filter.accountId != null) {
+      if (filter.accountId != null)
         query.where(_db.transactions.sourceAccountId.equals(filter.accountId!));
-      }
-      // 3. По списку категорий (IN clause)
-      if (filter.categoryIds.isNotEmpty) {
+      if (filter.categoryIds.isNotEmpty)
         query.where(_db.transactions.categoryId.isIn(filter.categoryIds));
-      }
-      // 4. По датам
-      if (filter.startDate != null) {
+      if (filter.startDate != null)
         query.where(
           _db.transactions.date.isBiggerOrEqualValue(filter.startDate!),
         );
-      }
-      if (filter.endDate != null) {
+      if (filter.endDate != null)
         query.where(
           _db.transactions.date.isSmallerOrEqualValue(filter.endDate!),
         );
-      }
-      // 5. Поиск по тегам (в таблице позиций чека)
-      if (filter.tagQuery != null) {
-        final subquery = _db.selectOnly(_db.transactionItems)
-          ..addColumns([_db.transactionItems.transactionId])
-          ..where(_db.transactionItems.name.like('%${filter.tagQuery}%'));
-
-        query.where(_db.transactions.id.isInQuery(subquery));
-      }
     }
 
     return query.watch().map((rows) {
       final grouped = <String, TransactionWithItems>{};
-
       for (var row in rows) {
         final transaction = row.readTable(_db.transactions);
         final item = row.readTableOrNull(_db.transactionItems);
         final category = row.readTableOrNull(_db.categories);
         final account = row.readTable(_db.accounts);
-
         if (!grouped.containsKey(transaction.id)) {
           grouped[transaction.id] = TransactionWithItems(
             transaction: transaction,
@@ -191,12 +157,8 @@ class WalletRepository {
             items: [],
           );
         }
-
-        if (item != null) {
-          grouped[transaction.id]!.items.add(item);
-        }
+        if (item != null) grouped[transaction.id]!.items.add(item);
       }
-
       return grouped.values.toList()
         ..sort((a, b) => b.transaction.date.compareTo(a.transaction.date));
     });

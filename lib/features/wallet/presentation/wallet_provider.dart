@@ -11,29 +11,25 @@ import '../domain/models/transaction_filter.dart';
 
 class WalletProvider extends ChangeNotifier {
   late final WalletRepository _repo;
-
-  // Храним подписку на базу, чтобы закрыть её, если провайдер удалится
   StreamSubscription? _accountsSubscription;
+  StreamSubscription? _categoriesSubscription;
+  StreamSubscription? _transactionsSubscription;
 
-  // --- СОСТОЯНИЕ (То, что видит UI) ---
   List<Account> accounts = [];
   BigInt totalBalance = BigInt.zero;
   bool isLoading = true;
+  List<CategoryWithTags> categories = [];
+  List<TransactionWithItems> transactions = [];
+  TransactionFilter _currentFilter = TransactionFilter.empty();
 
   WalletProvider() {
     _repo = WalletRepository(sl<AppDatabase>());
     _init();
   }
 
-  // Кэш категорий для выбора
-  List<CategoryWithTags> categories = [];
-
-  List<TransactionWithItems> transactions = [];
-
-  StreamSubscription? _categoriesSubscription;
+  TransactionFilter get currentFilter => _currentFilter;
 
   void _init() {
-    // Счета
     _accountsSubscription = _repo.watchAllAccounts().listen((data) {
       accounts = data;
       _calculateTotal();
@@ -41,13 +37,8 @@ class WalletProvider extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Подписка на транзакции
-    _repo.watchTransactionsWithItems().listen((data) {
-      transactions = data;
-      notifyListeners();
-    });
+    _initTransactionsStream();
 
-    // Категории + Теги
     _categoriesSubscription = _repo.watchAllCategories().listen((cats) async {
       final List<CategoryWithTags> list = [];
       for (var c in cats) {
@@ -59,170 +50,23 @@ class WalletProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> saveCategory({
-    required String? id,
-    required String name,
-    required String colorHex,
-    required String iconKey,
-    required List<String> tags,
-  }) async {
-    final catId = id ?? const Uuid().v4();
-
-    final category = CategoriesCompanion(
-      id: drift.Value(catId),
-      name: drift.Value(name),
-      colorHex: drift.Value(colorHex),
-      iconKey: drift.Value(iconKey),
-      moduleType: const drift.Value('finance'),
-    );
-
-    if (id == null) {
-      await _repo.createCategory(category);
-    } else {
-      final cat = Category(
-        id: catId,
-        name: name,
-        colorHex: colorHex,
-        iconKey: iconKey,
-        moduleType: 'finance',
-        parentId: null,
-      );
-      await _repo.updateCategory(cat);
-    }
-
-    // Сохраняем теги
-    if (tags.isNotEmpty) {
-      await _repo.updateTags(catId, tags);
-    }
-  }
-
-  // 1. Текущий фильтр
-  TransactionFilter _currentFilter = TransactionFilter.empty();
-  TransactionFilter get currentFilter => _currentFilter;
-
-  // 2. Метод обновления фильтра
-  void updateFilter(TransactionFilter newFilter) {
-    _currentFilter = newFilter;
-
-    // Переподписываемся на стрим транзакций с новым фильтром
-    _categoriesSubscription?.cancel(); // Если используешь ту же переменную
-    _initTransactionsStream(); // Выносим подписку в отдельный метод
-
-    notifyListeners();
-  }
-
   void _initTransactionsStream() {
-    _categoriesSubscription = _repo
-        .watchTransactionsWithItems(
-          filter: _currentFilter,
-        ) // Передаем фильтр в репо
+    _transactionsSubscription?.cancel();
+    _transactionsSubscription = _repo
+        .watchTransactionsWithItems(filter: _currentFilter)
         .listen((data) {
           transactions = data;
           notifyListeners();
         });
   }
 
-  // Метод для загрузки тегов при открытии диалога
-  Future<List<String>> getTags(String categoryId) async {
-    final tags = await _repo.getTagsForCategory(categoryId);
-    return tags.map((t) => t.name).toList();
+  void updateFilter(TransactionFilter newFilter) {
+    _currentFilter = newFilter;
+    _initTransactionsStream();
+    notifyListeners();
   }
 
-  Future<void> deleteCategory(String id) async {
-    await _repo.deleteCategory(id);
-  }
-
-  // МЕТОД СОЗДАНИЯ ТРАНЗАКЦИИ
-  Future<void> addTransaction({
-    String? id,
-    required double amount,
-    required String type, // 'expense', 'income', 'transfer'
-    required String accountId,
-    String? toAccountId,
-    String? categoryId,
-    DateTime? date,
-    String? note,
-    String? storeName,
-    List<TransactionItemDto> items = const [], // DTO для позиций
-  }) async {
-    final transId = id ?? const Uuid().v4();
-    final dateFinal = date ?? DateTime.now();
-    final amountCents = BigInt.from((amount * 100).round());
-
-    // 1. Создаем транзакцию
-    final transaction = TransactionsCompanion.insert(
-      id: transId,
-      type: type,
-      sourceAccountId: accountId,
-      targetAccountId: drift.Value(toAccountId),
-      categoryId: drift.Value(categoryId),
-      amount: amountCents,
-      date: dateFinal,
-      note: drift.Value(note),
-      shopName: drift.Value(storeName),
-    );
-
-    // 2. Создаем позиции
-    final itemCompanions = items.map((i) {
-      return TransactionItemsCompanion.insert(
-        id: const Uuid().v4(),
-        transactionId: transId,
-        name: i.name,
-        price: BigInt.from((i.price * 100).round()),
-        quantity: drift.Value(i.quantity),
-        categoryId: drift.Value(i.categoryId),
-      );
-    }).toList();
-
-    // 3. ОБНОВЛЯЕМ БАЛАНСЫ СЧЕТОВ
-    // Находим исходный счет
-    final fromAccIndex = accounts.indexWhere((a) => a.id == accountId);
-    if (fromAccIndex != -1) {
-      final fromAcc = accounts[fromAccIndex];
-
-      if (type == 'expense' ||
-          type == 'transfer' ||
-          type == 'transfer_person') {
-        // Списание
-        final newBalance = fromAcc.balance - amountCents;
-        await _repo.updateAccount(fromAcc.copyWith(balance: newBalance));
-      } else if (type == 'income' || type == 'transfer_person_incoming') {
-        // Пополнение
-        final newBalance = fromAcc.balance + amountCents;
-        await _repo.updateAccount(fromAcc.copyWith(balance: newBalance));
-      }
-    }
-
-    // Если это перевод СЕБЕ -> пополняем целевой счет
-    if (type == 'transfer' && toAccountId != null) {
-      final toAccIndex = accounts.indexWhere((a) => a.id == toAccountId);
-      if (toAccIndex != -1) {
-        final toAcc = accounts[toAccIndex];
-        final newBalance = toAcc.balance + amountCents;
-        await _repo.updateAccount(toAcc.copyWith(balance: newBalance));
-      }
-    }
-
-    // 4. Сохраняем саму транзакцию в историю
-    await _repo.createTransaction(
-      transaction: transaction,
-      items: itemCompanions,
-    );
-  }
-
-  void _calculateTotal() {
-    BigInt sum = BigInt.zero;
-    for (var acc in accounts) {
-      if (!acc.isExcluded) {
-        sum += acc.balance;
-      }
-    }
-    totalBalance = sum;
-  }
-
-  // --- МЕТОДЫ ДЛЯ ВЫЗОВА ИЗ UI ---
-
-  // Добавление
+  // --- СЧЕТА ---
   Future<void> addAccount({
     required String name,
     required BigInt balance,
@@ -234,7 +78,7 @@ class WalletProvider extends ChangeNotifier {
     final newAccount = AccountsCompanion.insert(
       id: const Uuid().v4(),
       name: name,
-      type: 'card', // Можно расширить позже
+      type: 'card',
       currencyCode: 'RUB',
       balance: drift.Value(balance),
       colorHex: drift.Value(colorHex),
@@ -242,24 +86,156 @@ class WalletProvider extends ChangeNotifier {
       isMain: drift.Value(isMain),
       isExcluded: drift.Value(isExcluded),
     );
-
     await _repo.createAccount(newAccount);
   }
 
-  // Редактирование
-  Future<void> updateAccount(Account updatedAccount) async {
-    await _repo.updateAccount(updatedAccount);
+  Future<void> updateAccount(Account updatedAccount) async =>
+      await _repo.updateAccount(updatedAccount);
+  Future<void> deleteAccount(String id) async => await _repo.deleteAccount(id);
+
+  // --- КАТЕГОРИИ ---
+  Future<void> saveCategory({
+    required String? id,
+    required String name,
+    required String colorHex,
+    required String iconKey,
+    required List<String> tags,
+  }) async {
+    final catId = id ?? const Uuid().v4();
+    final category = CategoriesCompanion(
+      id: drift.Value(catId),
+      name: drift.Value(name),
+      colorHex: drift.Value(colorHex),
+      iconKey: drift.Value(iconKey),
+    );
+    if (id == null)
+      await _repo.createCategory(category);
+    else
+      await _repo.updateCategory(
+        Category(
+          id: catId,
+          name: name,
+          colorHex: colorHex,
+          iconKey: iconKey,
+          moduleType: 'finance',
+          parentId: null,
+        ),
+      );
+    await _repo.updateTags(catId, tags);
   }
 
-  // Удаление
-  Future<void> deleteAccount(String id) async {
-    await _repo.deleteAccount(id);
+  Future<List<String>> getTags(String categoryId) async {
+    final tags = await _repo.getTagsForCategory(categoryId);
+    return tags.map((t) => t.name).toList();
+  }
+
+  Future<void> deleteCategory(String id) async =>
+      await _repo.deleteCategory(id);
+
+  // --- ТРАНЗАКЦИИ (С ПЕРЕСЧЕТОМ) ---
+  Future<void> addTransaction({
+    String? id,
+    required double amount,
+    required String type,
+    required String accountId,
+    String? toAccountId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+    String? storeName,
+    List<TransactionItemDto> items = const [],
+  }) async {
+    final transId = id ?? const Uuid().v4();
+    final amountCents = BigInt.from((amount * 100).round());
+
+    // 1. Откат старого баланса при редактировании
+    if (id != null) {
+      try {
+        final oldData = transactions.firstWhere((t) => t.transaction.id == id);
+        final oldT = oldData.transaction;
+        final oldAcc = accounts.firstWhere((a) => a.id == oldT.sourceAccountId);
+
+        BigInt revertedBalance = oldAcc.balance;
+        if (oldT.type == 'expense' ||
+            oldT.type == 'transfer' ||
+            oldT.type == 'transfer_person') {
+          revertedBalance += oldT.amount;
+        } else {
+          revertedBalance -= oldT.amount;
+        }
+        await _repo.updateAccount(oldAcc.copyWith(balance: revertedBalance));
+
+        if (oldT.type == 'transfer' && oldT.targetAccountId != null) {
+          final oldTarget = accounts.firstWhere(
+            (a) => a.id == oldT.targetAccountId,
+          );
+          await _repo.updateAccount(
+            oldTarget.copyWith(balance: oldTarget.balance - oldT.amount),
+          );
+        }
+      } catch (e) {
+        debugPrint("Balance revert failed: $e");
+      }
+    }
+
+    // 2. Применяем новый баланс
+    final fromAcc = accounts.firstWhere((a) => a.id == accountId);
+    if (type == 'expense' || type == 'transfer' || type == 'transfer_person') {
+      await _repo.updateAccount(
+        fromAcc.copyWith(balance: fromAcc.balance - amountCents),
+      );
+    } else {
+      await _repo.updateAccount(
+        fromAcc.copyWith(balance: fromAcc.balance + amountCents),
+      );
+    }
+
+    if (type == 'transfer' && toAccountId != null) {
+      final toAcc = accounts.firstWhere((a) => a.id == toAccountId);
+      await _repo.updateAccount(
+        toAcc.copyWith(balance: toAcc.balance + amountCents),
+      );
+    }
+
+    // 3. Сохраняем в БД
+    await _repo.createTransaction(
+      transaction: TransactionsCompanion.insert(
+        id: transId,
+        type: type,
+        sourceAccountId: accountId,
+        targetAccountId: drift.Value(toAccountId),
+        categoryId: drift.Value(categoryId),
+        amount: amountCents,
+        date: date ?? DateTime.now(),
+        note: drift.Value(note),
+        shopName: drift.Value(storeName),
+      ),
+      items: items
+          .map(
+            (i) => TransactionItemsCompanion.insert(
+              id: const Uuid().v4(),
+              transactionId: transId,
+              name: i.name,
+              price: BigInt.from((i.price * 100).round()),
+              quantity: drift.Value(i.quantity),
+              categoryId: drift.Value(i.categoryId),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  void _calculateTotal() {
+    totalBalance = accounts
+        .where((a) => !a.isExcluded)
+        .fold(BigInt.zero, (sum, a) => sum + a.balance);
   }
 
   @override
   void dispose() {
     _accountsSubscription?.cancel();
-    _categoriesSubscription?.cancel(); // Не забудь закрыть
+    _categoriesSubscription?.cancel();
+    _transactionsSubscription?.cancel();
     super.dispose();
   }
 }
@@ -270,7 +246,6 @@ class TransactionItemDto {
   double quantity;
   String? categoryId;
   List<String> tags;
-
   TransactionItemDto({
     required this.name,
     required this.price,
