@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/database/app_database.dart';
+import '../../core/database/seeder.dart';
+import '../../core/di/service_locator.dart';
+import '../../core/ui_kit/pulse_button.dart';
 import '../../core/ui_kit/pulse_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -21,12 +25,17 @@ class SettingsPage extends StatelessWidget {
               color: Colors.white.withValues(alpha: .1),
             ),
             const SizedBox(height: 16),
-            Text(
-              "Добро пожаловать",
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: .3),
-                fontSize: 16,
-              ),
+            PulseButton(
+              text: "СГЕНЕРИРОВАТЬ ДАННЫЕ (DEV)",
+              color: Colors.orange,
+              onPressed: () async {
+                final db = sl<AppDatabase>();
+                final seeder = WalletSeeder(db);
+                await seeder.seed();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Данные сгенерированы!")),
+                );
+              },
             ),
           ],
         ),
