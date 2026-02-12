@@ -25,6 +25,7 @@ class WalletToolsGrid extends StatelessWidget {
         'title': 'Магазины',
         'icon': Icons.storefront,
         'color': PulseColors.blue,
+        'route': AppRoutes.shops,
       },
       {
         'title': 'План',

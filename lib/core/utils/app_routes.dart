@@ -6,4 +6,5 @@ class AppRoutes {
   static const String category = '/wallet/category';
   static const String history = '/wallet/history';
   static const String reports = '/wallet/reports';
+  static const String shops = '/wallet/shops';
 }

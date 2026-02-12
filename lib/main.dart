@@ -12,6 +12,7 @@ import 'features/settings/settings_page.dart';
 import 'features/wallet/presentation/wallet_provider.dart';
 import 'features/wallet/ui/history/transaction_history_page.dart';
 import 'features/wallet/ui/reports/wallet_report_page.dart';
+import 'features/wallet/ui/shop/shops_page.dart';
 import 'features/wallet/ui/transactions/transaction_editor_page.dart';
 
 void main() async {
@@ -63,6 +64,7 @@ class PulseApp extends StatelessWidget {
         AppRoutes.category: (context) => const CategoryPage(),
         AppRoutes.history: (context) => const TransactionHistoryPage(),
         AppRoutes.reports: (context) => const WalletReportPage(),
+        AppRoutes.shops: (context) => const ShopsPage(),
       },
     );
   }
