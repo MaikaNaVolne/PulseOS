@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../../../../core/database/app_database.dart';
+import '../../domain/models/price_point.dart';
 import '../../domain/models/shop_stats.dart';
 import '../tables/wallet_tables.dart';
 import 'shop_product.dart'; // Импорт таблиц
@@ -75,6 +76,34 @@ class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
       }).toList()..sort(
         (a, b) => b.buyCount.compareTo(a.buyCount),
       ); // Самые частые сверху
+    });
+  }
+
+  Stream<List<PricePoint>> watchProductPriceHistory(
+    String shopName,
+    String productName,
+  ) {
+    final query = select(transactionItems).join([
+      innerJoin(
+        transactions,
+        transactions.id.equalsExp(transactionItems.transactionId),
+      ),
+    ]);
+
+    query.where(transactions.shopName.equals(shopName));
+    query.where(transactionItems.name.equals(productName));
+
+    // Сортировка для корректного отображения на графике (слева направо)
+    query.orderBy([
+      OrderingTerm(expression: transactions.date, mode: OrderingMode.asc),
+    ]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final item = row.readTable(transactionItems);
+        final tx = row.readTable(transactions);
+        return PricePoint(tx.date, item.price.toDouble() / 100.0);
+      }).toList();
     });
   }
 }
