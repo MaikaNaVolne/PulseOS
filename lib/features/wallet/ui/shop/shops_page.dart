@@ -7,6 +7,7 @@ import '../../../../core/theme/pulse_theme.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../domain/models/shop_stats.dart';
+import 'shop_details_page.dart';
 import 'widgets/shop_tile.dart';
 
 class ShopsPage extends StatefulWidget {
@@ -207,10 +208,12 @@ class _ShopsPageState extends State<ShopsPage> {
   }
 
   void _navigateToShopDetail(BuildContext context, String shopName) {
-    // Реализуем на следующем шаге
-    ScaffoldMessenger.of(
+    Navigator.push(
       context,
-    ).showSnackBar(SnackBar(content: Text("Переход к истории: $shopName")));
+      MaterialPageRoute(
+        builder: (context) => ShopDetailsPage(shopName: shopName),
+      ),
+    );
   }
 }
 
