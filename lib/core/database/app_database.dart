@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/sleep/data/daos/sleep_dao.dart';
+import '../../features/sleep/data/tables/sleep_tables.dart';
 import '../../features/wallet/data/daos/debts_dao.dart';
 import '../../features/wallet/data/daos/planning_dao.dart';
 import '../../features/wallet/data/daos/shops_dao.dart';
@@ -23,8 +25,11 @@ part 'app_database.g.dart';
     TransactionItems,
     Debts,
     PlannedTransactions,
+    SleepEntries,
+    SleepFactors,
+    SleepFactorLinks,
   ],
-  daos: [ShopsDao, DebtsDao, PlanningDao],
+  daos: [ShopsDao, DebtsDao, PlanningDao, SleepDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
