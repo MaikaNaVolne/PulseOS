@@ -44,4 +44,14 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
     final rows = await query.get();
     return rows.map((row) => row.readTable(sleepFactors)).toList();
   }
+
+  // Получить все факторы из справочника
+  Future<List<SleepFactor>> getAllFactors() => select(sleepFactors).get();
+
+  // Удалить старые связи (для редактирования)
+  Future<void> clearFactorLinks(String sleepId) {
+    return (delete(
+      sleepFactorLinks,
+    )..where((t) => t.sleepId.equals(sleepId))).go();
+  }
 }

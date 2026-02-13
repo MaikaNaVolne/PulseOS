@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../diallogs/sleep_editor_dialog.dart';
 import 'add_sleep_sheet.dart';
 
 class SleepBottomDock extends StatelessWidget {
@@ -16,7 +18,6 @@ class SleepBottomDock extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1E202C).withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(24),
@@ -25,10 +26,18 @@ class SleepBottomDock extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _DockItem(icon: Icons.history, label: "История"),
-                _DockItem(icon: Icons.calculate_outlined, label: "Калькулятор"),
-                _AddSleepButton(),
-                _DockItem(icon: Icons.settings_outlined, label: "Цели"),
+                _DockItem(icon: Icons.history, label: "История", onTap: () {}),
+                _DockItem(
+                  icon: Icons.calculate_outlined,
+                  label: "Калькулятор",
+                  onTap: () {},
+                ),
+                const _AddSleepButton(), // Кнопка вынесена вниз
+                _DockItem(
+                  icon: Icons.settings_outlined,
+                  label: "Цели",
+                  onTap: () {},
+                ),
               ],
             ),
           ),
@@ -41,45 +50,66 @@ class SleepBottomDock extends StatelessWidget {
 class _DockItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _DockItem({required this.icon, required this.label});
+  final VoidCallback onTap;
+  const _DockItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Colors.white54, size: 22),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white24, fontSize: 9)),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white54, size: 22),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white24, fontSize: 9),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Обновленный виджет кнопки внутри файла sleep_bottom_dock.dart
-
 class _AddSleepButton extends StatelessWidget {
+  const _AddSleepButton();
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Показываем шторку
+        HapticFeedback.mediumImpact();
         showModalBottomSheet(
           context: context,
           backgroundColor: Colors.transparent,
           isScrollControlled: true,
-          builder: (context) => AddSleepSheet(
+          builder: (ctx) => AddSleepSheet(
             onTimer: () {
-              Navigator.pop(context);
-              // Логика перехода на таймер
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Таймер скоро появится")),
+              );
             },
             onNight: () {
-              Navigator.pop(context);
-              // Открытие диалога ручного ввода (night)
+              Navigator.pop(ctx);
+              showDialog(
+                context: context,
+                builder: (context) =>
+                    const SleepEditorDialog(initialType: 'night'),
+              );
             },
             onNap: () {
-              Navigator.pop(context);
-              // Открытие диалога ручного ввода (nap)
+              Navigator.pop(ctx);
+              showDialog(
+                context: context,
+                builder: (context) =>
+                    const SleepEditorDialog(initialType: 'nap'),
+              );
             },
           ),
         );
@@ -89,13 +119,6 @@ class _AddSleepButton extends StatelessWidget {
         decoration: const BoxDecoration(
           color: PulseColors.purple,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: PulseColors.purple,
-              blurRadius: 15,
-              spreadRadius: -5,
-            ),
-          ],
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),

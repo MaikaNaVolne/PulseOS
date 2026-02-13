@@ -28,7 +28,6 @@ class AddSleepSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Полоска сверху
             Container(
               width: 40,
               height: 4,
@@ -38,7 +37,6 @@ class AddSleepSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
             _buildOption(
               icon: Icons.timer_outlined,
               title: "Таймер сна",
