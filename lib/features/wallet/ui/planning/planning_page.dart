@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:pulseos/features/wallet/presentation/wallet_provider.dart';
 import '../../../../core/database/app_database.dart';
@@ -6,6 +7,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../domain/logic/planning_calculator.dart';
+import 'dialog/add_planned_dialog.dart';
 import 'widgets/plan_fact_card.dart';
 import 'widgets/planning_chart.dart';
 import 'widgets/mini_calendar.dart';
@@ -21,6 +23,11 @@ class PlanningPage extends StatelessWidget {
       title: "План",
       subtitle: "ОКТЯБРЬ 2024",
       accentColor: PulseColors.purple,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddPlannedDialog(context),
+        backgroundColor: PulseColors.purple,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: StreamBuilder<List<PlannedTransaction>>(
         stream: sl<AppDatabase>().planningDao.watchAllPlanned(),
         builder: (context, snapshot) {
@@ -69,6 +76,11 @@ class PlanningPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _showAddPlannedDialog(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    showDialog(context: context, builder: (_) => const AddPlannedDialog());
   }
 }
 
