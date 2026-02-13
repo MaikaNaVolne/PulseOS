@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/pulse_theme.dart';
 import '../../../core/ui_kit/pulse_overlays.dart';
 import '../../../core/utils/app_routes.dart';
+import '../../sleep/presentation/sleep_provider.dart';
 import '../../wallet/presentation/wallet_provider.dart';
 
 class BentoGrid extends StatelessWidget {
@@ -14,6 +15,7 @@ class BentoGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<WalletProvider>();
     final double amout = provider.totalBalance.toDouble() / 100;
+    final sleepProvider = context.watch<SleepProvider>();
     return Column(
       children: [
         // ПЕРВЫЙ РЯД: Кошелек и Пульс
@@ -58,9 +60,13 @@ class BentoGrid extends StatelessWidget {
               child: _BentoCard(
                 height: 130,
                 title: "Сон",
-                value: "7.5",
+                // Показываем часы: "8.5"
+                value: sleepProvider.todayTotalHours > 0
+                    ? sleepProvider.todayTotalHours.toStringAsFixed(1)
+                    : "--",
                 unit: "ч",
-                subtitle: "Отлично",
+                // Показываем статус: "Отлично" или "Нет данных"
+                subtitle: sleepProvider.qualityLabel,
                 icon: FontAwesomeIcons.moon,
                 color: PulseColors.purple,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.sleep),

@@ -9,6 +9,7 @@ import 'core/di/service_locator.dart';
 import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
+import 'features/sleep/presentation/sleep_provider.dart';
 import 'features/sleep/sleep_page.dart';
 import 'features/sleep/ui/history_page.dart';
 import 'features/sleep/ui/sleep_calculator_page.dart';
@@ -31,6 +32,7 @@ void main() async {
       providers: [
         // Регистрируем наш кошелек
         ChangeNotifierProvider(create: (_) => WalletProvider()),
+        ChangeNotifierProvider(create: (_) => SleepProvider()),
       ],
       child: const PulseApp(),
     ),
