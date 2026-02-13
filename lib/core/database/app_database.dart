@@ -28,6 +28,7 @@ part 'app_database.g.dart';
     SleepEntries,
     SleepFactors,
     SleepFactorLinks,
+    SleepGoals,
   ],
   daos: [ShopsDao, DebtsDao, PlanningDao, SleepDao],
 )

@@ -40,3 +40,11 @@ class SleepFactorLinks extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+// --- ТАБЛИЦА: НАСТРОЙКИ СНА ---
+class SleepGoals extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get targetWakeHour => integer().withDefault(const Constant(8))();
+  IntColumn get targetWakeMinute => integer().withDefault(const Constant(0))();
+  RealColumn get targetDuration => real().withDefault(const Constant(8.5))();
+}

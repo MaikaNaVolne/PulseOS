@@ -13,4 +13,5 @@ class AppRoutes {
   static const String sleep = '/sleep';
   static const String sleepHistory = '/sleep/history';
   static const String sleepCalculator = '/sleep/calculator';
+  static const String sleepSettings = '/sleep/settings';
 }

@@ -5,7 +5,9 @@ import 'package:uuid/uuid.dart';
 
 part 'sleep_dao.g.dart';
 
-@DriftAccessor(tables: [SleepEntries, SleepFactors, SleepFactorLinks])
+@DriftAccessor(
+  tables: [SleepEntries, SleepFactors, SleepFactorLinks, SleepGoals],
+)
 class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
   SleepDao(super.db);
 
@@ -54,4 +56,10 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
       sleepFactorLinks,
     )..where((t) => t.sleepId.equals(sleepId))).go();
   }
+
+  // Получить цели (всегда берем первую запись)
+  Future<SleepGoal?> getGoals() => select(sleepGoals).getSingleOrNull();
+
+  Future<void> updateGoals(SleepGoalsCompanion entry) =>
+      into(sleepGoals).insertOnConflictUpdate(entry);
 }

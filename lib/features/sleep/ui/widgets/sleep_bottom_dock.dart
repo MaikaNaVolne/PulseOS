@@ -43,7 +43,8 @@ class SleepBottomDock extends StatelessWidget {
                 _DockItem(
                   icon: Icons.settings_outlined,
                   label: "Цели",
-                  onTap: () {},
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.sleepSettings),
                 ),
               ],
             ),
