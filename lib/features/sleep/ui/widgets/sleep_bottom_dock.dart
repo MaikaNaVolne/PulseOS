@@ -35,8 +35,9 @@ class SleepBottomDock extends StatelessWidget {
                 ),
                 _DockItem(
                   icon: Icons.calculate_outlined,
-                  label: "Калькулятор",
-                  onTap: () {},
+                  label: "Циклы",
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.sleepCalculator),
                 ),
                 const _AddSleepButton(), // Кнопка вынесена вниз
                 _DockItem(
