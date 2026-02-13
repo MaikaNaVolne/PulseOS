@@ -36,7 +36,7 @@ class _SleepHistoryPageState extends State<SleepHistoryPage> {
     return PulsePage(
       title: "История",
       subtitle:
-          "${DateFormat('d MMM').format(startOfWeek)} — ${DateFormat('d MMM').format(endOfWeek)}",
+          "${DateFormat('d MMM', 'ru').format(startOfWeek)} — ${DateFormat('d MMM', 'ru').format(endOfWeek)}",
       accentColor: PulseColors.purple,
       actions: [
         IconButton(
@@ -145,7 +145,7 @@ class _HistoryTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  DateFormat('d').format(entry.endTime),
+                  DateFormat('d', 'ru').format(entry.endTime),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
