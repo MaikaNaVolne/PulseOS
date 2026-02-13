@@ -10,6 +10,7 @@ import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/wallet/presentation/wallet_provider.dart';
+import 'features/wallet/ui/debts/debts_page.dart';
 import 'features/wallet/ui/history/transaction_history_page.dart';
 import 'features/wallet/ui/reports/wallet_report_page.dart';
 import 'features/wallet/ui/shop/shops_page.dart';
@@ -65,6 +66,7 @@ class PulseApp extends StatelessWidget {
         AppRoutes.history: (context) => const TransactionHistoryPage(),
         AppRoutes.reports: (context) => const WalletReportPage(),
         AppRoutes.shops: (context) => const ShopsPage(),
+        AppRoutes.debts: (context) => const DebtsPage(),
       },
     );
   }

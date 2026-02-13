@@ -32,4 +32,9 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
       ),
     );
   }
+
+  // Обновить существующий долг
+  Future<void> updateDebt(Debt debt) {
+    return update(debts).replace(debt);
+  }
 }

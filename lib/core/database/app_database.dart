@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/wallet/data/daos/debts_dao.dart';
 import '../../features/wallet/data/daos/shops_dao.dart';
 import '../../features/wallet/data/tables/wallet_tables.dart';
 
@@ -21,7 +22,7 @@ part 'app_database.g.dart';
     TransactionItems,
     Debts,
   ],
-  daos: [ShopsDao],
+  daos: [ShopsDao, DebtsDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());

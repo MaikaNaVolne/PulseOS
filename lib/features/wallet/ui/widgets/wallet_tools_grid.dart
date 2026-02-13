@@ -15,6 +15,7 @@ class WalletToolsGrid extends StatelessWidget {
         'title': 'Долги',
         'icon': Icons.handshake_outlined,
         'color': PulseColors.orange,
+        'route': AppRoutes.debts,
       },
       {
         'title': 'Инсайты',

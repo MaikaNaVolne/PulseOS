@@ -25,8 +25,7 @@ class DebtCalculator {
         calcDate.isAfter(debt.dueDate!) &&
         debt.penaltyType != 'none') {
       total += _calculateExtra(
-        principal:
-            total, // Штраф может начисляться на сумму с процентами (сложный вопрос, сделаем пока так)
+        principal: total,
         type: debt.penaltyType,
         period: debt.penaltyPeriod,
         rate: debt.penaltyRate,

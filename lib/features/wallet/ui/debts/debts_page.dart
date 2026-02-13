@@ -1,13 +1,14 @@
 // lib/features/wallet/ui/debts/debts_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
-import '../../../../core/ui_kit/pulse_buttons.dart';
 import '../../domain/logic/debt_calculator.dart';
 import 'dialogs/add_debt_dialog.dart';
+import 'dialogs/repay_debt_dialog.dart';
 
 class DebtsPage extends StatelessWidget {
   const DebtsPage({super.key});
@@ -185,13 +186,15 @@ class _DebtTile extends StatelessWidget {
   const _DebtTile({required this.debt});
 
   @override
+  @override
   Widget build(BuildContext context) {
+    // Расчет текущей суммы (с процентами и штрафами)
     final currentAmount = DebtCalculator.calculateCurrentAmount(debt);
     final fmt = NumberFormat("#,##0", "ru_RU");
     final color = debt.isOweMe ? PulseColors.green : PulseColors.red;
 
     // Считаем дни до дедлайна или просрочку
-    String timeStatus = "";
+    String timeStatus = "Бессрочно";
     Color timeColor = Colors.white24;
 
     if (debt.dueDate != null) {
@@ -199,75 +202,170 @@ class _DebtTile extends StatelessWidget {
       if (diff < 0) {
         timeStatus = "Просрочено на ${diff.abs()} дн.";
         timeColor = PulseColors.red;
+      } else if (diff == 0) {
+        timeStatus = "Вернуть сегодня";
+        timeColor = PulseColors.orange;
       } else {
         timeStatus = "Осталось $diff дн.";
-        timeColor = PulseColors.orange;
+        timeColor = PulseColors.green.withValues(alpha: 0.7);
       }
-    } else {
-      timeStatus = "Без срока";
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person, color: color, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
+    // Расчет процента/суммы переплаты
+    final initialAmount = debt.amount.toDouble() / 100;
+    final extra = currentAmount - initialAmount;
+    final hasExtra = extra > 0;
+
+    // ОБЕРТКА ДЛЯ РЕДАКТИРОВАНИЯ (Клик по всей карточке)
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        // Открываем диалог редактирования, передавая текущий долг
+        showDialog(
+          context: context,
+          builder: (_) => AddDebtDialog(debt: debt),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: Column(
+          children: [
+            // ВЕРХНЯЯ ЧАСТЬ (Инфо)
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  debt.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                // Иконка
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    debt.isOweMe ? Icons.arrow_downward : Icons.arrow_upward,
+                    color: color,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  timeStatus,
-                  style: TextStyle(color: timeColor, fontSize: 11),
+                const SizedBox(width: 16),
+
+                // Название и статус
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        debt.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        timeStatus,
+                        style: TextStyle(
+                          color: timeColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Сумма
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      "${fmt.format(currentAmount)} ₽",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (hasExtra)
+                      Text(
+                        "+${fmt.format(extra)} ₽ (${debt.interestType == 'percent' ? '${debt.interestRate}%' : 'фикс'})",
+                        style: const TextStyle(
+                          color: PulseColors.orange,
+                          fontSize: 10,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "${fmt.format(currentAmount)} ₽",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              if (currentAmount > (debt.amount / 100))
+
+            // НИЖНЯЯ ЧАСТЬ (Действия)
+            const SizedBox(height: 16),
+            Container(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+            const SizedBox(height: 12),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Дата начала
                 Text(
-                  "+${(currentAmount - (debt.amount / 100)).toStringAsFixed(0)}% сбора",
-                  style: const TextStyle(
-                    color: PulseColors.orange,
-                    fontSize: 10,
+                  "От: ${DateFormat('dd.MM.yyyy').format(debt.startDate)}",
+                  style: const TextStyle(color: Colors.white24, fontSize: 11),
+                ),
+
+                // Кнопка ПОГАСИТЬ (Отдельный обработчик нажатия)
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact(); // Более сильный отклик для важного действия
+                    showDialog(
+                      context: context,
+                      builder: (_) => RepayDebtDialog(debt: debt),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: PulseColors.green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: PulseColors.green.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 14,
+                          color: PulseColors.green,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          "ПОГАСИТЬ",
+                          style: TextStyle(
+                            color: PulseColors.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
