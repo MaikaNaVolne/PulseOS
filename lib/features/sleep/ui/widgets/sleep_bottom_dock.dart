@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import '../../../../core/utils/app_routes.dart';
 import '../diallogs/sleep_editor_dialog.dart';
 import 'add_sleep_sheet.dart';
 
@@ -26,7 +27,12 @@ class SleepBottomDock extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _DockItem(icon: Icons.history, label: "История", onTap: () {}),
+                _DockItem(
+                  icon: Icons.history,
+                  label: "История",
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.sleepHistory),
+                ),
                 _DockItem(
                   icon: Icons.calculate_outlined,
                   label: "Калькулятор",

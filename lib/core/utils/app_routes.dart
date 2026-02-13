@@ -11,4 +11,5 @@ class AppRoutes {
   static const String planning = '/wallet/planning';
 
   static const String sleep = '/sleep';
+  static const String sleepHistory = '/sleep/history';
 }
