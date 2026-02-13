@@ -19,6 +19,7 @@ part 'app_database.g.dart';
     Accounts,
     Transactions,
     TransactionItems,
+    Debts,
   ],
   daos: [ShopsDao],
 )

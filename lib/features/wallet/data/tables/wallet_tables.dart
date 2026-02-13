@@ -116,3 +116,37 @@ class TransactionWithItems {
     this.account,
   });
 }
+
+// --- 6. ДОЛГИ ---
+class Debts extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()(); // Имя должника или кому должен
+  Int64Column get amount => int64()(); // Сумма (в копейках)
+
+  // Тип: true = "Мне должны", false = "Я должен"
+  BoolColumn get isOweMe => boolean().withDefault(const Constant(true))();
+
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get dueDate => dateTime().nullable()(); // Срок возврата
+
+  // --- Настройки процентов ---
+  // Тип процента: 'none', 'fixed', 'percent'
+  TextColumn get interestType => text().withDefault(const Constant('none'))();
+  // Период: 'day', 'week', 'month', 'year'
+  TextColumn get interestPeriod => text().nullable()();
+  RealColumn get interestRate => real().withDefault(const Constant(0.0))();
+
+  // --- Настройки штрафов ---
+  // Тип штрафа: 'none', 'fixed', 'percent'
+  TextColumn get penaltyType => text().withDefault(const Constant('none'))();
+  // Период штрафа
+  TextColumn get penaltyPeriod => text().nullable()();
+  RealColumn get penaltyRate => real().withDefault(const Constant(0.0))();
+
+  // Статус
+  BoolColumn get isClosed => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get closedDate => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
