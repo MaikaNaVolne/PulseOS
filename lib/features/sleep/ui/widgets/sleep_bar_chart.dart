@@ -62,8 +62,23 @@ class SleepBarChart extends StatelessWidget {
           child: BarChart(
             BarChartData(
               alignment: BarChartAlignment.spaceAround,
-              maxY: isQualityMode ? 10 : 12,
-              barTouchData: BarTouchData(enabled: true),
+              maxY: isQualityMode ? 10 : 16,
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => const Color(0xFF1E202C),
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    String suffix = isQualityMode ? "" : "ч";
+                    return BarTooltipItem(
+                      "${rod.toY.toStringAsFixed(1)}$suffix",
+                      const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
+                ),
+              ),
               titlesData: FlTitlesData(
                 show: true,
                 bottomTitles: AxisTitles(

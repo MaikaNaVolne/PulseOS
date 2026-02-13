@@ -13,7 +13,9 @@ class WeeklySleepStats {
       0,
       (sum, e) => sum + e.endTime.difference(e.startTime).inMinutes,
     );
-    return (totalMins / entries.length) / 60.0;
+    return double.parse(
+      ((totalMins / entries.length) / 60.0).toStringAsFixed(1),
+    );
   }
 
   // Среднее качество
