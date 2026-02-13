@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/database/app_database.dart';
 import '../../../../../core/di/service_locator.dart';
@@ -10,6 +11,8 @@ import '../../../../../core/ui_kit/pulse_button.dart';
 import '../../../../../core/ui_kit/pulse_text_field.dart';
 import '../../../../../core/ui_kit/pulse_large_number_input.dart';
 import '../../../../../core/ui_kit/pulse_pickers.dart';
+import '../../../presentation/wallet_provider.dart';
+import '../widgets/debt_sync_confirmation_dialog.dart';
 
 class AddDebtDialog extends StatefulWidget {
   final Debt? debt; // Если не null -> Режим редактирования
@@ -85,7 +88,7 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
     super.dispose();
   }
 
-  void _save() {
+  void _save() async {
     if (_nameCtrl.text.isEmpty || _amountCtrl.text.isEmpty) return;
 
     final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
@@ -95,37 +98,48 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
         double.tryParse(_penaltyCtrl.text.replaceAll(',', '.')) ?? 0;
 
     final dao = sl<AppDatabase>().debtsDao;
+    final isNewDebt = widget.debt == null;
 
-    // Подготовка объекта (Companion)
-    final debtData = DebtsCompanion(
-      id: drift.Value(
-        widget.debt?.id ?? const Uuid().v4(),
-      ), // ID старый или новый
-      name: drift.Value(_nameCtrl.text),
-      amount: drift.Value(BigInt.from((amount * 100).round())),
+    // Подготовка объекта
+    final debtData = DebtsCompanion.insert(
+      id: widget.debt?.id ?? const Uuid().v4(),
+      name: _nameCtrl.text,
+      amount: BigInt.from((amount * 100).round()),
       isOweMe: drift.Value(_isOweMe),
-      startDate: drift.Value(_startDate),
+      startDate: _startDate,
       dueDate: drift.Value(_hasDueDate ? _dueDate : null),
-
-      // Логика процентов (Фикс или %)
       interestType: drift.Value(_hasInterest ? _interestType : 'none'),
       interestPeriod: drift.Value(_hasInterest ? _interestPeriod : null),
       interestRate: drift.Value(_hasInterest ? rateOrFixed : 0.0),
-
-      // Логика штрафов
       penaltyType: drift.Value(_hasPenalty ? _penaltyType : 'none'),
       penaltyRate: drift.Value(_hasPenalty ? penalty : 0.0),
     );
 
-    if (widget.debt != null) {
-      // ОБНОВЛЕНИЕ
-      // Нам нужно преобразовать Companion обратно в DataClass для update,
-      // либо использовать update(debts).replace(...), но update принимает DataClass.
-      // Проще всего использовать delete + create или custom update.
-      // Но правильный путь в Drift для update - это использовать Companion внутри update statement.
-      // Однако наш DebtsDao.updateDebt принимает (Debt debt).
-      // Давай создадим Debt объект вручную для обновления:
+    // --- ЛОГИКА СИНХРОНИЗАЦИИ (Только для новых) ---
+    if (isNewDebt) {
+      // Спрашиваем пользователя
+      final accountId = await showDialog<String>(
+        context: context,
+        builder: (_) =>
+            DebtSyncConfirmationDialog(amount: amount, isOweMe: _isOweMe),
+      );
 
+      // Если пользователь выбрал счет (не null), создаем транзакцию
+      if (accountId != null && mounted) {
+        final walletProvider = context.read<WalletProvider>();
+
+        await walletProvider.addTransaction(
+          amount: amount,
+          type: _isOweMe ? 'expense' : 'income',
+          accountId: accountId,
+          note: "Долг: ${_nameCtrl.text}",
+          date: DateTime.now(),
+        );
+      }
+    }
+
+    // Сохраняем сам долг в БД
+    if (widget.debt != null) {
       final updatedDebt = Debt(
         id: widget.debt!.id,
         name: _nameCtrl.text,
@@ -137,19 +151,17 @@ class _AddDebtDialogState extends State<AddDebtDialog> {
         interestPeriod: _hasInterest ? _interestPeriod : null,
         interestRate: _hasInterest ? rateOrFixed : 0.0,
         penaltyType: _hasPenalty ? _penaltyType : 'none',
-        penaltyPeriod: null, // Пока не используем период для штрафа в UI
+        penaltyPeriod: null,
         penaltyRate: _hasPenalty ? penalty : 0.0,
         isClosed: widget.debt!.isClosed,
         closedDate: widget.debt!.closedDate,
       );
-
       dao.updateDebt(updatedDebt);
     } else {
-      // СОЗДАНИЕ
       dao.createDebt(debtData);
     }
 
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
