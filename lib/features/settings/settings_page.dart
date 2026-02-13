@@ -32,6 +32,7 @@ class SettingsPage extends StatelessWidget {
                 final db = sl<AppDatabase>();
                 final seeder = WalletSeeder(db);
                 await seeder.seed();
+                await seeder.seedPlanning();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Данные сгенерированы!")),
                 );

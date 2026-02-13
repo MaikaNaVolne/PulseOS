@@ -9,6 +9,78 @@ class WalletSeeder {
 
   WalletSeeder(this.db);
 
+  Future<void> seedPlanning() async {
+    print("📅 SEEDER: Генерация планов...");
+    final accountId = await _ensureAccount();
+    final foodCatId = await _ensureCategory("Продукты");
+    final homeCatId = await _ensureCategory("Жилье");
+    final salaryCatId = await _ensureCategory("Зарплата");
+
+    final now = DateTime.now();
+
+    // 1. Ежемесячный расход: Аренда (на 3 месяца вперед)
+    for (int i = 0; i < 3; i++) {
+      await db.planningDao.createPlanned(
+        PlannedTransactionsCompanion.insert(
+          id: const Uuid().v4(),
+          name: "Аренда квартиры",
+          amount: BigInt.from(3500000), // 35 000 руб
+          type: 'expense',
+          date: DateTime(now.year, now.month + i, 15),
+          categoryId: Value(homeCatId),
+          accountId: Value(accountId),
+          isRecurring: const Value(true),
+          recurrenceType: const Value('monthly'),
+        ),
+      );
+    }
+
+    // 2. Еженедельный расход: Продукты (на 4 недели)
+    for (int i = 0; i < 4; i++) {
+      await db.planningDao.createPlanned(
+        PlannedTransactionsCompanion.insert(
+          id: const Uuid().v4(),
+          name: "Закупка еды на неделю",
+          amount: BigInt.from(500000), // 5 000 руб
+          type: 'expense',
+          date: now.add(Duration(days: 7 * i)),
+          categoryId: Value(foodCatId),
+          accountId: Value(accountId),
+          isRecurring: const Value(true),
+          recurrenceType: const Value('weekly'),
+        ),
+      );
+    }
+
+    // 3. Доход: Зарплата
+    await db.planningDao.createPlanned(
+      PlannedTransactionsCompanion.insert(
+        id: const Uuid().v4(),
+        name: "Зарплата",
+        amount: BigInt.from(8500000), // 85 000 руб
+        type: 'income',
+        date: DateTime(now.year, now.month, 1),
+        categoryId: Value(salaryCatId),
+        accountId: Value(accountId),
+        isCompleted: const Value(true), // Уже получена
+      ),
+    );
+
+    // 4. Просроченный план (для теста UI)
+    await db.planningDao.createPlanned(
+      PlannedTransactionsCompanion.insert(
+        id: const Uuid().v4(),
+        name: "Интернет (Просрочено)",
+        amount: BigInt.from(60000), // 600 руб
+        type: 'expense',
+        date: now.subtract(const Duration(days: 5)),
+        accountId: Value(accountId),
+      ),
+    );
+
+    print("✅ SEEDER: Планы созданы.");
+  }
+
   /// Запускает генерацию данных
   Future<void> seed() async {
     print("🌱 SEEDER: Начало генерации данных...");

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../features/wallet/data/daos/debts_dao.dart';
+import '../../features/wallet/data/daos/planning_dao.dart';
 import '../../features/wallet/data/daos/shops_dao.dart';
 import '../../features/wallet/data/tables/wallet_tables.dart';
 
@@ -21,8 +22,9 @@ part 'app_database.g.dart';
     Transactions,
     TransactionItems,
     Debts,
+    PlannedTransactions,
   ],
-  daos: [ShopsDao, DebtsDao],
+  daos: [ShopsDao, DebtsDao, PlanningDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
