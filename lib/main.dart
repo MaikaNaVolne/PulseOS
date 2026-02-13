@@ -9,6 +9,7 @@ import 'core/di/service_locator.dart';
 import 'core/theme/pulse_theme.dart';
 import 'features/home/home_page.dart';
 import 'features/settings/settings_page.dart';
+import 'features/sleep/sleep_page.dart';
 import 'features/wallet/presentation/wallet_provider.dart';
 import 'features/wallet/ui/debts/debts_page.dart';
 import 'features/wallet/ui/history/transaction_history_page.dart';
@@ -69,6 +70,8 @@ class PulseApp extends StatelessWidget {
         AppRoutes.shops: (context) => const ShopsPage(),
         AppRoutes.debts: (context) => const DebtsPage(),
         AppRoutes.planning: (context) => const PlanningPage(),
+
+        AppRoutes.sleep: (context) => const SleepPage(),
       },
     );
   }

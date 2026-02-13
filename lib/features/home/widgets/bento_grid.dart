@@ -63,8 +63,7 @@ class BentoGrid extends StatelessWidget {
                 subtitle: "Отлично",
                 icon: FontAwesomeIcons.moon,
                 color: PulseColors.purple,
-                onTap: () =>
-                    PulseOverlays.showComingSoon(context, featureName: "Сон"),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.sleep),
               ),
             ),
             const SizedBox(width: 12),

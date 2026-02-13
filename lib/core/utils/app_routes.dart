@@ -9,4 +9,6 @@ class AppRoutes {
   static const String shops = '/wallet/shops';
   static const String debts = '/wallet/debts';
   static const String planning = '/wallet/planning';
+
+  static const String sleep = '/sleep';
 }
