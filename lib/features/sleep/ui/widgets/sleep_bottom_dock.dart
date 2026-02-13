@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/pulse_theme.dart';
+import 'add_sleep_sheet.dart';
 
 class SleepBottomDock extends StatelessWidget {
   const SleepBottomDock({super.key});
@@ -55,16 +56,49 @@ class _DockItem extends StatelessWidget {
   }
 }
 
+// Обновленный виджет кнопки внутри файла sleep_bottom_dock.dart
+
 class _AddSleepButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: PulseColors.purple,
-        shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: () {
+        // Показываем шторку
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (context) => AddSleepSheet(
+            onTimer: () {
+              Navigator.pop(context);
+              // Логика перехода на таймер
+            },
+            onNight: () {
+              Navigator.pop(context);
+              // Открытие диалога ручного ввода (night)
+            },
+            onNap: () {
+              Navigator.pop(context);
+              // Открытие диалога ручного ввода (nap)
+            },
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(
+          color: PulseColors.purple,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: PulseColors.purple,
+              blurRadius: 15,
+              spreadRadius: -5,
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),
-      child: const Icon(Icons.add, color: Colors.white, size: 24),
     );
   }
 }
