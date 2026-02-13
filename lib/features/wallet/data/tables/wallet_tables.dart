@@ -150,3 +150,29 @@ class Debts extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+// --- 7. ПЛАНИРУЕМЫЕ ОПЕРАЦИИ ---
+class PlannedTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  Int64Column get amount => int64()();
+  TextColumn get type => text()(); // 'income', 'expense'
+  DateTimeColumn get date => dateTime()();
+
+  // Связи
+  TextColumn get accountId => text().nullable().references(Accounts, #id)();
+  TextColumn get categoryId => text().nullable().references(Categories, #id)();
+
+  // Статус
+  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
+
+  // Рекурсия (Повторы)
+  BoolColumn get isRecurring => boolean().withDefault(const Constant(false))();
+  // 'daily', 'weekly', 'monthly', 'yearly'
+  TextColumn get recurrenceType => text().nullable()();
+  IntColumn get recurrenceInterval =>
+      integer().nullable()(); // Раз в 2 недели и т.д.
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

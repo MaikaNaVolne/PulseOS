@@ -8,4 +8,5 @@ class AppRoutes {
   static const String reports = '/wallet/reports';
   static const String shops = '/wallet/shops';
   static const String debts = '/wallet/debts';
+  static const String planning = '/wallet/planning';
 }

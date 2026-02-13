@@ -32,6 +32,7 @@ class WalletToolsGrid extends StatelessWidget {
         'title': 'План',
         'icon': Icons.calendar_today,
         'color': PulseColors.teal,
+        'route': AppRoutes.planning,
       },
       {
         'title': 'Отчеты',
