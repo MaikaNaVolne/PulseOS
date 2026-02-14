@@ -62,4 +62,9 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
 
   Future<void> updateGoals(SleepGoalsCompanion entry) =>
       into(sleepGoals).insertOnConflictUpdate(entry);
+
+  // Удалить запись сна
+  Future<void> deleteSleep(String id) {
+    return (delete(sleepEntries)..where((t) => t.id.equals(id))).go();
+  }
 }

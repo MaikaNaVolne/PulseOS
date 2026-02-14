@@ -4,6 +4,8 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
+import '../../../core/ui_kit/pulse_dismissible.dart';
+import '../../../core/utils/snackbar_utils.dart';
 import '../domain/models/weekly_sleep_stats.dart';
 import 'diallogs/sleep_editor_dialog.dart';
 import 'widgets/history_stats_row.dart';
@@ -102,7 +104,26 @@ class _SleepHistoryPageState extends State<SleepHistoryPage> {
               ),
               const SizedBox(height: 12),
 
-              ...weeklyEntries.map((e) => _HistoryTile(entry: e)),
+              ...weeklyEntries.map((entry) {
+                return PulseDismissible(
+                  id: entry.id,
+                  onDismissed: () {
+                    final db = sl<AppDatabase>();
+                    final companion = entry.toCompanion(true);
+
+                    db.sleepDao.deleteSleep(entry.id);
+
+                    SnackBarUtils.showUndo(
+                      context: context,
+                      message: "Запись удалена",
+                      onUndo: () {
+                        db.sleepDao.insertSleep(companion);
+                      },
+                    );
+                  },
+                  child: _HistoryTile(entry: entry),
+                );
+              }),
             ],
           );
         },
