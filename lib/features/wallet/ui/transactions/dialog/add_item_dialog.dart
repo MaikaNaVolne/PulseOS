@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../../../../../core/theme/pulse_theme.dart';
 import '../../../presentation/wallet_provider.dart';
 
@@ -16,7 +15,18 @@ class _AddItemDialogState extends State<AddItemDialog> {
   final _nameCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController(text: "1");
+  final _unitAmountCtrl = TextEditingController(); // Ввод веса
+
+  String _selectedUnit = 'pcs'; // pcs, g, kg, ml, l
   List<String> _tags = [];
+
+  final Map<String, String> _units = {
+    'pcs': 'шт',
+    'g': 'г',
+    'kg': 'кг',
+    'ml': 'мл',
+    'l': 'л',
+  };
 
   @override
   void initState() {
@@ -26,6 +36,11 @@ class _AddItemDialogState extends State<AddItemDialog> {
       _priceCtrl.text = widget.item!.price.toString();
       _qtyCtrl.text = widget.item!.quantity.toString();
       _tags = List.from(widget.item!.tags);
+
+      if (widget.item!.unitAmount != null) {
+        _unitAmountCtrl.text = widget.item!.unitAmount.toString();
+        _selectedUnit = widget.item!.unitName ?? 'pcs';
+      }
     }
   }
 
@@ -35,13 +50,35 @@ class _AddItemDialogState extends State<AddItemDialog> {
     final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.')) ?? 0;
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 1;
 
+    // Логика умного конвертирования
+    double? finalUnitAmount;
+    String? finalUnitName;
+
+    final inputAmount = double.tryParse(
+      _unitAmountCtrl.text.replaceAll(',', '.'),
+    );
+
+    if (inputAmount != null && inputAmount > 0) {
+      if (_selectedUnit == 'kg') {
+        finalUnitAmount = inputAmount * 1000;
+        finalUnitName = 'g';
+      } else if (_selectedUnit == 'l') {
+        finalUnitAmount = inputAmount * 1000;
+        finalUnitName = 'ml';
+      } else {
+        finalUnitAmount = inputAmount;
+        finalUnitName = _selectedUnit;
+      }
+    }
+
     final newItem = TransactionItemDto(
-      // <--- Возвращаем DTO
       name: _nameCtrl.text,
       price: price,
       quantity: qty,
-      categoryId: widget.item?.categoryId, // Сохраняем старую категорию
-      tags: _tags, // Сохраняем теги
+      categoryId: widget.item?.categoryId,
+      tags: _tags,
+      unitAmount: finalUnitAmount,
+      unitName: finalUnitName,
     );
 
     Navigator.pop(context, newItem);
@@ -52,7 +89,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
       child: Dialog(
-        backgroundColor: const Color(0xFF1E202C).withValues(alpha: 0.9),
+        backgroundColor: const Color(0xFF1E202C).withValues(alpha: 0.95),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -71,12 +108,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
               _field(_nameCtrl, "Название", Icons.shopping_bag),
               const SizedBox(height: 10),
+
               Row(
                 children: [
                   Expanded(
                     child: _field(
                       _priceCtrl,
-                      "Цена",
+                      "Цена (за шт/упак)",
                       Icons.attach_money,
                       isNum: true,
                     ),
@@ -94,6 +132,56 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 ],
               ),
 
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Вес / Объем упаковки (опционально)",
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _field(
+                      _unitAmountCtrl,
+                      "Сколько в пачке?",
+                      Icons.scale,
+                      isNum: true,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedUnit,
+                        dropdownColor: PulseColors.cardColor,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        items: _units.entries
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.key,
+                                child: Text(e.value),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedUnit = v!),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -105,7 +193,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
                     foregroundColor: Colors.black,
                   ),
                   child: const Text(
-                    "ДОБАВИТЬ",
+                    "СОХРАНИТЬ",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -138,7 +226,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
         decoration: InputDecoration(
           icon: Icon(icon, color: Colors.white30, size: 20),
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white38),
+          labelStyle: const TextStyle(color: Colors.white38, fontSize: 12),
           border: InputBorder.none,
         ),
       ),

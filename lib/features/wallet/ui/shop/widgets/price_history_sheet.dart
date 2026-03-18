@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../../../core/database/app_database.dart';
 import '../../../../../core/di/service_locator.dart';
 import '../../../../../core/theme/pulse_theme.dart';
-import '../../../domain/models/price_point.dart';
+
+// Правильный импорт
+import '../../../domain/models/shop_stats.dart';
 
 class PriceHistorySheet extends StatelessWidget {
   final String shopName;

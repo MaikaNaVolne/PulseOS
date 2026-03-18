@@ -99,6 +99,10 @@ class TransactionItems extends Table {
   // Товар может иметь СВОЮ категорию (для сплита)
   TextColumn get categoryId => text().nullable().references(Categories, #id)();
 
+  // Умный расчет цены
+  RealColumn get unitAmount => real().nullable()();
+  TextColumn get unitName => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

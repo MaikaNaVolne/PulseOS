@@ -220,6 +220,8 @@ class WalletProvider extends ChangeNotifier {
               price: BigInt.from((i.price * 100).round()),
               quantity: drift.Value(i.quantity),
               categoryId: drift.Value(i.categoryId),
+              unitAmount: drift.Value(i.unitAmount),
+              unitName: drift.Value(i.unitName),
             ),
           )
           .toList(),
@@ -321,12 +323,16 @@ class TransactionItemDto {
   double quantity;
   String? categoryId;
   List<String> tags;
+  double? unitAmount;
+  String? unitName;
   TransactionItemDto({
     required this.name,
     required this.price,
     this.quantity = 1.0,
     this.categoryId,
     this.tags = const [],
+    this.unitAmount,
+    this.unitName,
   });
 }
 

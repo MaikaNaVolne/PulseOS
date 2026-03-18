@@ -1,30 +1,28 @@
+// lib/features/wallet/data/daos/shops_dao.dart
 import 'package:drift/drift.dart';
 import '../../../../core/database/app_database.dart';
-import '../../domain/models/price_point.dart';
+
+// ИМПОРТИРУЕМ ЕДИНЫЙ ФАЙЛ С МОДЕЛЯМИ
 import '../../domain/models/shop_stats.dart';
 import '../tables/wallet_tables.dart';
-import 'shop_product.dart'; // Импорт таблиц
 
-part 'shops_dao.g.dart'; // Этот файл сгенерируется
+part 'shops_dao.g.dart';
 
 @DriftAccessor(tables: [Transactions, TransactionItems])
 class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
   ShopsDao(super.db);
 
-  /// Получить список магазинов с агрегированной статистикой
+  /// 1. Получить список магазинов с агрегированной статистикой
   Stream<List<ShopStats>> watchShops() {
-    // Определяем алиасы для колонок агрегации
     final visits = transactions.id.count();
     final total = transactions.amount.sum();
     final lastVisit = transactions.date.max();
 
     final query = selectOnly(transactions)
       ..addColumns([transactions.shopName, visits, total, lastVisit])
-      // Фильтруем пустые названия и расходы
       ..where(transactions.shopName.isNotNull())
       ..where(transactions.type.equals('expense'))
       ..groupBy([transactions.shopName])
-      // Сортируем: сначала самые посещаемые
       ..orderBy([OrderingTerm(expression: visits, mode: OrderingMode.desc)]);
 
     return query.watch().map((rows) {
@@ -41,8 +39,8 @@ class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
     });
   }
 
+  /// 2. Получить список товаров в конкретном магазине
   Stream<List<ShopProduct>> watchProductsInShop(String shopName) {
-    // Создаем запрос с JOIN
     final query = select(transactionItems).join([
       innerJoin(
         transactions,
@@ -50,35 +48,51 @@ class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
       ),
     ]);
 
-    // Фильтруем по имени магазина
     query.where(transactions.shopName.equals(shopName));
 
     return query.watch().map((rows) {
-      // Группируем результат по названию товара вручную для более гибкой логики цен
-      final grouped = <String, List<double>>{};
+      final grouped = <String, List<Map<String, dynamic>>>{};
 
       for (final row in rows) {
         final item = row.readTable(transactionItems);
         final name = item.name.trim();
-        final price = item.price.toDouble() / 100.0;
+        final rawPrice = item.price.toDouble() / 100.0;
 
-        grouped.putIfAbsent(name, () => []).add(price);
+        double normalizedPrice = rawPrice;
+        String label = "за шт";
+
+        if (item.unitAmount != null && item.unitAmount! > 0) {
+          if (item.unitName == 'g' || item.unitName == 'ml') {
+            normalizedPrice = rawPrice / (item.unitAmount! / 100.0);
+            label = item.unitName == 'g' ? "за 100 г" : "за 100 мл";
+          } else {
+            normalizedPrice = rawPrice / item.unitAmount!;
+            label = "за 1 ${item.unitName ?? 'шт'}";
+          }
+        }
+
+        grouped.putIfAbsent(name, () => []).add({
+          'price': normalizedPrice,
+          'label': label,
+        });
       }
 
       return grouped.entries.map((e) {
-        final prices = e.value;
+        final prices = e.value.map((m) => m['price'] as double).toList();
+        final label = e.value.last['label'] as String;
+
         return ShopProduct(
           name: e.key,
-          lastPrice: prices.last, // Drift вернет в порядке добавления
+          normalizedPrice: prices.last,
+          unitLabel: label,
           buyCount: prices.length,
           hasPriceChanged: prices.toSet().length > 1,
         );
-      }).toList()..sort(
-        (a, b) => b.buyCount.compareTo(a.buyCount),
-      ); // Самые частые сверху
+      }).toList()..sort((a, b) => b.buyCount.compareTo(a.buyCount));
     });
   }
 
+  /// 3. История цены на один конкретный товар в магазине
   Stream<List<PricePoint>> watchProductPriceHistory(
     String shopName,
     String productName,
@@ -92,8 +106,6 @@ class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
 
     query.where(transactions.shopName.equals(shopName));
     query.where(transactionItems.name.equals(productName));
-
-    // Сортировка для корректного отображения на графике (слева направо)
     query.orderBy([
       OrderingTerm(expression: transactions.date, mode: OrderingMode.asc),
     ]);
@@ -102,7 +114,19 @@ class ShopsDao extends DatabaseAccessor<AppDatabase> with _$ShopsDaoMixin {
       return rows.map((row) {
         final item = row.readTable(transactionItems);
         final tx = row.readTable(transactions);
-        return PricePoint(tx.date, item.price.toDouble() / 100.0);
+
+        final rawPrice = item.price.toDouble() / 100.0;
+        double normalizedPrice = rawPrice;
+
+        if (item.unitAmount != null && item.unitAmount! > 0) {
+          if (item.unitName == 'g' || item.unitName == 'ml') {
+            normalizedPrice = rawPrice / (item.unitAmount! / 100.0);
+          } else {
+            normalizedPrice = rawPrice / item.unitAmount!;
+          }
+        }
+
+        return PricePoint(tx.date, normalizedPrice);
       }).toList();
     });
   }

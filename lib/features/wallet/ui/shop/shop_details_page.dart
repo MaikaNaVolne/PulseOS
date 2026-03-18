@@ -4,7 +4,9 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/theme/pulse_theme.dart';
 import '../../../../core/ui_kit/pulse_page.dart';
-import '../../data/daos/shop_product.dart';
+
+// Правильный импорт моделей
+import '../../domain/models/shop_stats.dart';
 import 'widgets/price_history_sheet.dart';
 
 class ShopDetailsPage extends StatelessWidget {
@@ -20,7 +22,6 @@ class ShopDetailsPage extends StatelessWidget {
       accentColor: PulseColors.orange,
       showBackButton: true,
       body: StreamBuilder<List<ShopProduct>>(
-        // Используем наш DAO для реактивного обновления списка
         stream: sl<AppDatabase>().shopsDao.watchProductsInShop(shopName),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -53,7 +54,6 @@ class ShopDetailsPage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Разворачиваем список плиток
               ...products.map(
                 (product) => _ProductTile(product: product, shopName: shopName),
               ),
@@ -94,14 +94,11 @@ class _ProductTile extends StatelessWidget {
   const _ProductTile({required this.product, required this.shopName});
 
   void _showPriceHistory(BuildContext context) {
-    // Виброотклик для приятного UX
     HapticFeedback.lightImpact();
-
-    // Открываем шторку с графиком цен
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Позволяет шторке подстраиваться под контент
+      isScrollControlled: true,
       builder: (_) =>
           PriceHistorySheet(shopName: shopName, productName: product.name),
     );
@@ -121,7 +118,6 @@ class _ProductTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Индикатор изменения цены (Trending)
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -144,7 +140,7 @@ class _ProductTile extends StatelessWidget {
             ),
             const SizedBox(width: 16),
 
-            // Название товара
+            // Название товара и кол-во покупок
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,25 +167,35 @@ class _ProductTile extends StatelessWidget {
               ),
             ),
 
-            // Цена
+            // Цена и статус изменения
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  "${product.lastPrice.toStringAsFixed(0)} ₽",
+                  "${product.normalizedPrice.toStringAsFixed(1)} ₽",
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  product.unitLabel,
+                  style: const TextStyle(
+                    color: PulseColors.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 if (product.hasPriceChanged)
-                  const Text(
-                    "цена менялась",
-                    style: TextStyle(
-                      color: PulseColors.orange,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text(
+                      "цена менялась",
+                      style: TextStyle(
+                        color: PulseColors.orange,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
               ],
